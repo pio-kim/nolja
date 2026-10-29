@@ -25,8 +25,8 @@ const AIR: Record<AirGrade, { label: string; dot: string }> = {
 function SkyIcon({ sky }: { sky: string }) {
   const props = { "aria-hidden": true, className: "size-4" };
   if (sky.includes("눈")) return <CloudSnowIcon {...props} />;
-  if (sky.includes("비") || sky.includes("소나기")) return <CloudRainIcon {...props} />;
-  if (sky.includes("흐림")) return <CloudIcon {...props} />;
+  if (sky.includes("비") || sky.includes("소나기") || sky.includes("뇌우")) return <CloudRainIcon {...props} />;
+  if (sky.includes("흐림") || sky.includes("안개")) return <CloudIcon {...props} />;
   if (sky.includes("구름")) return <CloudSunIcon {...props} />;
   return <SunIcon {...props} />;
 }
@@ -51,17 +51,11 @@ export function WeatherStripView({ state, onRetry }: { state: WeatherState; onRe
       >
         <div>
           <b>날씨를 불러오지 못했어요.</b>
-          <p className="text-sm text-muted-foreground">
-            {state.reason === "missing-key"
-              ? "날씨 서비스 키가 설정되지 않았어요. 숙소와 음식점 결과는 그대로 볼 수 있습니다."
-              : "숙소와 음식점 결과는 그대로 볼 수 있습니다."}
-          </p>
+          <p className="text-sm text-muted-foreground">숙소와 음식점 결과는 그대로 볼 수 있습니다.</p>
         </div>
-        {state.reason === "failed" && (
-          <Button size="sm" className="rounded-full px-4" onClick={onRetry}>
-            다시 시도
-          </Button>
-        )}
+        <Button size="sm" className="rounded-full px-4" onClick={onRetry}>
+          다시 시도
+        </Button>
       </section>
     );
   }
@@ -168,12 +162,17 @@ function AirLine({ air }: { air: DayAir }) {
   );
 }
 
-function sourceLine(report: WeatherReport): string {
-  const kma = report.midIssuedAt
-    ? `기상청 단기예보 ${clock(report.shortIssuedAt)} · 중기예보 ${clock(report.midIssuedAt)} 발표`
-    : `기상청 단기예보 ${clock(report.shortIssuedAt)} 발표`;
-  const air = report.airCheckedAt
-    ? `대기질 Google Air Quality(한국 기준 등급) ${clock(report.airCheckedAt)} 조회`
-    : "대기질 Google Air Quality(한국 기준 등급)";
-  return `${kma} · ${air}`;
+const AIR_SOURCE = { google: "Google Air Quality", "open-meteo": "Open-Meteo(CAMS)" } as const;
+
+function sourceLine({ forecastSource: fc, airSource, checkedAt }: WeatherReport): string {
+  const forecast =
+    fc.name === "open-meteo"
+      ? `날씨 Open-Meteo ${clock(checkedAt)} 조회`
+      : fc.midIssuedAt
+        ? `기상청 단기예보 ${clock(fc.shortIssuedAt)} · 중기예보 ${clock(fc.midIssuedAt)} 발표`
+        : `기상청 단기예보 ${clock(fc.shortIssuedAt)} 발표`;
+  const air = airSource
+    ? `대기질 ${AIR_SOURCE[airSource]}(한국 기준 등급) ${clock(checkedAt)} 조회`
+    : "대기질 조회 실패";
+  return `${forecast} · ${air}`;
 }

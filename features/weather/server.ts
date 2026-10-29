@@ -1,12 +1,24 @@
 // Server-only calls for weather. KMA request shapes follow the 공공데이터포털
 // short-term (VilageFcstInfoService_2.0) and mid-term (MidFcstInfoService)
-// guides; air quality follows the Google Air Quality forecast:lookup reference.
+// guides; air quality follows the Google Air Quality forecast:lookup reference;
+// Open-Meteo follows its /v1/forecast and /v1/air-quality docs (no key needed).
 import type { LatLng } from "@/lib/geo";
 
-import { AIR_FORECAST_HOURS, type AirHour, type MidFields, type ShortItem } from "./forecast";
+import {
+  AIR_FORECAST_HOURS,
+  OPEN_METEO_AIR_DAYS,
+  OPEN_METEO_FORECAST_DAYS,
+  type AirHour,
+  type MidFields,
+  type OpenMeteoDaily,
+  type OpenMeteoHourly,
+  type ShortItem,
+} from "./forecast";
 
 const KMA_BASE = "https://apis.data.go.kr/1360000";
 const AIR_URL = "https://airquality.googleapis.com/v1/forecast:lookup";
+const OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+const OPEN_METEO_AIR_URL = "https://air-quality-api.open-meteo.com/v1/air-quality";
 
 type FetchDep = { fetch?: typeof fetch };
 
@@ -87,4 +99,32 @@ export async function fetchAirForecast(point: LatLng, now: Date, deps: { apiKey:
     pageToken = json.nextPageToken || undefined;
   } while (pageToken);
   return hours;
+}
+
+export async function fetchOpenMeteoForecast(point: LatLng, deps: FetchDep = {}): Promise<OpenMeteoDaily> {
+  const doFetch = deps.fetch ?? fetch;
+  const params = new URLSearchParams({
+    latitude: String(point.lat),
+    longitude: String(point.lng),
+    daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+    timezone: "Asia/Seoul",
+    forecast_days: String(OPEN_METEO_FORECAST_DAYS),
+  });
+  const res = await doFetch(`${OPEN_METEO_FORECAST_URL}?${params}`);
+  if (!res.ok) throw new Error(`Open-Meteo forecast failed: ${res.status}`);
+  return ((await res.json()) as { daily: OpenMeteoDaily }).daily;
+}
+
+export async function fetchOpenMeteoAir(point: LatLng, deps: FetchDep = {}): Promise<OpenMeteoHourly> {
+  const doFetch = deps.fetch ?? fetch;
+  const params = new URLSearchParams({
+    latitude: String(point.lat),
+    longitude: String(point.lng),
+    hourly: "pm10,pm2_5",
+    timezone: "Asia/Seoul",
+    forecast_days: String(OPEN_METEO_AIR_DAYS),
+  });
+  const res = await doFetch(`${OPEN_METEO_AIR_URL}?${params}`);
+  if (!res.ok) throw new Error(`Open-Meteo air quality failed: ${res.status}`);
+  return ((await res.json()) as { hourly: OpenMeteoHourly }).hourly;
 }

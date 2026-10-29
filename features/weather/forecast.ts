@@ -1,7 +1,9 @@
 import { addDays } from "@/lib/korea-date";
 
-// Pure conversion from KMA short/mid-term forecasts and Google Air Quality
-// hourly forecasts into one summary per stay date. Nothing here estimates a
+// Pure conversion from KMA short/mid-term forecasts, Open-Meteo daily forecasts,
+// and Google Air Quality or Open-Meteo hourly air quality into one summary per
+// stay date. Open-Meteo needs no key and stands in when KMA or Google cannot be
+// used, so the screen keeps working without those keys. Nothing here estimates a
 // missing forecast: dates without data say when they become available.
 export type IsoDate = string; // YYYY-MM-DD, a calendar day in Korea
 
@@ -10,7 +12,7 @@ export type AirGrade = "good" | "normal" | "bad" | "very-bad";
 export type Slot = { sky: string; pop: number | null };
 
 export type DayForecast =
-  | { kind: "day"; source: "short" | "mid"; sky: string; min: number | null; max: number | null; pop: number | null }
+  | { kind: "day"; source: "short" | "mid" | "open-meteo"; sky: string; min: number | null; max: number | null; pop: number | null }
   | { kind: "ampm"; source: "mid"; min: number | null; max: number | null; am: Slot; pm: Slot }
   | { kind: "none"; availableFrom: IsoDate | null };
 
@@ -18,11 +20,18 @@ export type DayAir = { kind: "grade"; grade: AirGrade } | { kind: "none"; availa
 
 export type WeatherDay = { date: IsoDate; forecast: DayForecast; air: DayAir };
 
+// Times are ISO in KST (YYYY-MM-DDTHH:mm).
+export type ForecastSource =
+  | { name: "kma"; shortIssuedAt: string; midIssuedAt: string | null } // mid null when no stay date uses it
+  | { name: "open-meteo" };
+
+export type AirSource = "google" | "open-meteo";
+
 export type WeatherReport = {
   days: WeatherDay[];
-  shortIssuedAt: string; // KMA issue times, ISO in KST (YYYY-MM-DDTHH:mm)
-  midIssuedAt: string | null; // null when no stay date uses the mid-term forecast
-  airCheckedAt: string | null; // null when the air quality lookup failed
+  forecastSource: ForecastSource;
+  airSource: AirSource | null; // null when every air quality lookup failed
+  checkedAt: string;
 };
 
 // ── dates in Korea ──
@@ -186,10 +195,81 @@ export function worstAirByDate(hours: AirHour[]): Map<IsoDate, AirGrade> {
   return new Map([...worst].map(([date, aqi]) => [date, airGrade(aqi)]));
 }
 
+// ── Open-Meteo (/v1/forecast daily, /v1/air-quality hourly) ──
+export const OPEN_METEO_FORECAST_DAYS = 16;
+export const OPEN_METEO_AIR_DAYS = 5;
+
+export type OpenMeteoDaily = {
+  time: string[];
+  weather_code?: (number | null)[];
+  temperature_2m_max?: (number | null)[];
+  temperature_2m_min?: (number | null)[];
+  precipitation_probability_max?: (number | null)[];
+};
+
+// WMO weather interpretation codes.
+export function wmoSky(code: number): string {
+  if (code <= 1) return "맑음";
+  if (code === 2) return "구름많음";
+  if (code === 3) return "흐림";
+  if (code === 45 || code === 48) return "안개";
+  if (code >= 51 && code <= 57) return "이슬비";
+  if ((code >= 61 && code <= 67) || code === 80 || code === 81) return "비";
+  if (code === 82) return "소나기";
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "눈";
+  if (code >= 95) return "뇌우";
+  return "흐림";
+}
+
+export function summarizeOpenMeteo(daily: OpenMeteoDaily): Map<IsoDate, DayForecast> {
+  const days = new Map<IsoDate, DayForecast>();
+  daily.time.forEach((date, i) => {
+    const code = daily.weather_code?.[i];
+    if (code === null || code === undefined) return;
+    const at = (values?: (number | null)[]) => rounded(values?.[i] ?? null);
+    days.set(date, {
+      kind: "day",
+      source: "open-meteo",
+      sky: wmoSky(code),
+      min: at(daily.temperature_2m_min),
+      max: at(daily.temperature_2m_max),
+      pop: at(daily.precipitation_probability_max),
+    });
+  });
+  return days;
+}
+
+export type OpenMeteoHourly = { time: string[]; pm10?: (number | null)[]; pm2_5?: (number | null)[] };
+
+// Korean 미세먼지(PM10) / 초미세먼지(PM2.5) bands in µg/m³; the worse of the two
+// is the hour's single grade.
+const GRADES: AirGrade[] = ["good", "normal", "bad", "very-bad"];
+const bandOf = (value: number, limits: [number, number, number]) => limits.filter((limit) => value > limit).length;
+
+export function openMeteoAirByDate(hourly: OpenMeteoHourly): Map<IsoDate, AirGrade> {
+  const worst = new Map<IsoDate, number>();
+  hourly.time.forEach((time, i) => {
+    const pm10 = hourly.pm10?.[i];
+    const pm25 = hourly.pm2_5?.[i];
+    const bands = [
+      ...(typeof pm10 === "number" ? [bandOf(pm10, [30, 80, 150])] : []),
+      ...(typeof pm25 === "number" ? [bandOf(pm25, [15, 35, 75])] : []),
+    ];
+    if (bands.length === 0) return;
+    const date = time.slice(0, 10); // requested in Asia/Seoul
+    worst.set(date, Math.max(worst.get(date) ?? 0, ...bands));
+  });
+  return new Map([...worst].map(([date, band]) => [date, GRADES[band]]));
+}
+
 // ── assembling the stay ──
-// Mid-term forecasts reach 10 days after the issue date; air quality 96 hours.
-const MID_REACH_DAYS = 10;
-const AIR_REACH_DAYS = AIR_FORECAST_HOURS / 24;
+// How far ahead each source reaches, in days after today.
+export const REACH_DAYS = {
+  kma: 10, // mid-term forecasts run to 10 days after the issue date
+  "open-meteo": OPEN_METEO_FORECAST_DAYS - 1,
+  google: AIR_FORECAST_HOURS / 24,
+  "open-meteo-air": OPEN_METEO_AIR_DAYS - 1,
+};
 
 const laterThan = (today: IsoDate) => (date: IsoDate) => (date > today ? date : null);
 
@@ -197,32 +277,35 @@ export function buildReport(input: {
   checkIn: IsoDate;
   checkOut: IsoDate;
   now: Date;
-  short: Map<IsoDate, DayForecast>;
-  mid: Map<IsoDate, DayForecast>;
-  air: Map<IsoDate, AirGrade> | null; // null when the lookup failed
-  shortIssuedAt: string;
-  midIssuedAt: string;
+  forecast: { days: Map<IsoDate, DayForecast>; reachDays: number; source: ForecastSource };
+  air: { grades: Map<IsoDate, AirGrade>; reachDays: number; source: AirSource } | null; // null when lookups failed
 }): WeatherReport {
   const today = koreaClock(input.now).date;
   const after = laterThan(today);
+  const { forecast: fc, air: aq } = input;
   const days = stayDates(input.checkIn, input.checkOut).map((date): WeatherDay => {
-    const forecast = input.short.get(date) ??
-      input.mid.get(date) ?? { kind: "none", availableFrom: after(addDays(date, -MID_REACH_DAYS)) };
-    const grade = input.air?.get(date);
-    const air: DayAir = !input.air
+    const forecast = fc.days.get(date) ?? { kind: "none", availableFrom: after(addDays(date, -fc.reachDays)) };
+    const grade = aq?.grades.get(date);
+    const air: DayAir = !aq
       ? { kind: "failed" }
       : grade
         ? { kind: "grade", grade }
-        : { kind: "none", availableFrom: after(addDays(date, -AIR_REACH_DAYS)) };
+        : { kind: "none", availableFrom: after(addDays(date, -aq.reachDays)) };
     return { date, forecast, air };
   });
   const usesMid = days.some((d) => d.forecast.kind !== "none" && d.forecast.source === "mid");
+  const source = fc.source;
   return {
     days,
-    shortIssuedAt: input.shortIssuedAt,
-    midIssuedAt: usesMid ? input.midIssuedAt : null,
-    airCheckedAt: input.air ? koreaClock(input.now).iso : null,
+    forecastSource: source.name === "kma" ? { ...source, midIssuedAt: usesMid ? source.midIssuedAt : null } : source,
+    airSource: aq?.source ?? null,
+    checkedAt: koreaClock(input.now).iso,
   };
+}
+
+// Short-term days win over mid-term days for the same date.
+export function mergeKma(short: Map<IsoDate, DayForecast>, mid: Map<IsoDate, DayForecast>): Map<IsoDate, DayForecast> {
+  return new Map([...mid, ...short]);
 }
 
 // "202610291400" → "2026-10-29T14:00"

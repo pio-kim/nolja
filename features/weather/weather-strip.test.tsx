@@ -18,9 +18,9 @@ const report: WeatherReport = {
     },
     { date: "2026-11-10", forecast: { kind: "none", availableFrom: "2026-10-31" }, air: { kind: "none", availableFrom: "2026-11-06" } },
   ],
-  shortIssuedAt: "2026-10-29T14:00",
-  midIssuedAt: "2026-10-29T06:00",
-  airCheckedAt: "2026-10-29T15:12",
+  forecastSource: { name: "kma", shortIssuedAt: "2026-10-29T14:00", midIssuedAt: "2026-10-29T06:00" },
+  airSource: "google",
+  checkedAt: "2026-10-29T15:12",
 };
 
 describe("날씨 영역", () => {
@@ -40,9 +40,21 @@ describe("날씨 영역", () => {
     ).toBeInTheDocument();
   });
 
+  test("키 없는 대체 출처(Open-Meteo)를 쓰면 출처에 그렇게 보여준다", () => {
+    render(
+      <WeatherStripView
+        state={{ status: "ready", report: { ...report, forecastSource: { name: "open-meteo" }, airSource: "open-meteo" } }}
+        onRetry={() => {}}
+      />,
+    );
+    expect(
+      screen.getByText("날씨 Open-Meteo 10월 29일 15:12 조회 · 대기질 Open-Meteo(CAMS)(한국 기준 등급) 10월 29일 15:12 조회"),
+    ).toBeInTheDocument();
+  });
+
   test("실패하면 다른 결과는 그대로라고 알리고 다시 시도할 수 있다", () => {
     const onRetry = vi.fn();
-    render(<WeatherStripView state={{ status: "error", reason: "failed" }} onRetry={onRetry} />);
+    render(<WeatherStripView state={{ status: "error" }} onRetry={onRetry} />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("날씨를 불러오지 못했어요.");
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));

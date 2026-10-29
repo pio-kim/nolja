@@ -4,8 +4,11 @@ import {
   buildReport,
   midIssueTime,
   nearestMidCity,
+  openMeteoAirByDate,
+  REACH_DAYS,
   shortBaseTime,
   summarizeMid,
+  summarizeOpenMeteo,
   summarizeShort,
   toKmaGrid,
   worstAirByDate,
@@ -92,21 +95,43 @@ describe("날짜별 요약", () => {
     expect(air.get("2026-10-31")).toBe("bad");
     expect(air.get("2026-11-01")).toBe("normal");
   });
+
+  test("Open-Meteo 일별 예보는 WMO 코드를 하늘 상태로 바꾸고 값이 없는 날은 뺀다", () => {
+    const days = summarizeOpenMeteo({
+      time: ["2026-10-31", "2026-11-01", "2026-11-02"],
+      weather_code: [1, 61, null],
+      temperature_2m_max: [16.6, 14.2, null],
+      temperature_2m_min: [6.8, -0.4, null],
+      precipitation_probability_max: [10, 70, null],
+    });
+    expect(days.get("2026-10-31")).toEqual({ kind: "day", source: "open-meteo", sky: "맑음", min: 7, max: 17, pop: 10 });
+    expect(days.get("2026-11-01")).toMatchObject({ sky: "비", min: -0, max: 14, pop: 70 });
+    expect(days.has("2026-11-02")).toBe(false);
+  });
+
+  test("Open-Meteo 미세먼지는 PM10·PM2.5 한국 기준 중 나쁜 쪽을, 그날 가장 나쁜 시간대로 쓴다", () => {
+    const air = openMeteoAirByDate({
+      time: ["2026-10-31T00:00", "2026-10-31T12:00", "2026-11-01T00:00", "2026-11-02T00:00"],
+      pm10: [20, 25, 90, null],
+      pm2_5: [10, 20, 30, null],
+    });
+    expect(air.get("2026-10-31")).toBe("normal"); // PM2.5 20 → 보통
+    expect(air.get("2026-11-01")).toBe("bad"); // PM10 90 → 나쁨
+    expect(air.has("2026-11-02")).toBe(false);
+  });
 });
 
 describe("숙박 기간 날씨", () => {
   const short = new Map([["2026-10-31", { kind: "day", source: "short", sky: "맑음", min: 7, max: 17, pop: 10 } as const]]);
+  const kma = { name: "kma", shortIssuedAt: "2026-10-29T14:00", midIssuedAt: "2026-10-29T06:00" } as const;
 
   test("체크인 날부터 체크아웃 날까지 날짜마다 날씨를 두고, 없는 예보는 언제부터 볼 수 있는지 알려준다", () => {
     const report = buildReport({
       checkIn: "2026-10-31",
       checkOut: "2026-11-10",
       now: NOW,
-      short,
-      mid: new Map(),
-      air: new Map([["2026-10-31", "good" as const]]),
-      shortIssuedAt: "2026-10-29T14:00",
-      midIssuedAt: "2026-10-29T06:00",
+      forecast: { days: short, reachDays: REACH_DAYS.kma, source: kma },
+      air: { grades: new Map([["2026-10-31", "good" as const]]), reachDays: REACH_DAYS.google, source: "google" },
     });
 
     expect(report.days.map((d) => d.date)).toHaveLength(11);
@@ -116,8 +141,9 @@ describe("숙박 기간 날씨", () => {
       forecast: { kind: "none", availableFrom: "2026-10-31" },
       air: { kind: "none", availableFrom: "2026-11-06" },
     });
-    expect(report.midIssuedAt).toBeNull();
-    expect(report.airCheckedAt).toBe("2026-10-29T15:12");
+    expect(report.forecastSource).toEqual({ name: "kma", shortIssuedAt: "2026-10-29T14:00", midIssuedAt: null });
+    expect(report.airSource).toBe("google");
+    expect(report.checkedAt).toBe("2026-10-29T15:12");
   });
 
   test("미세먼지 조회가 실패해도 기온·강수는 그대로 둔다", () => {
@@ -125,13 +151,25 @@ describe("숙박 기간 날씨", () => {
       checkIn: "2026-10-31",
       checkOut: "2026-10-31",
       now: NOW,
-      short,
-      mid: new Map(),
+      forecast: { days: short, reachDays: REACH_DAYS.kma, source: kma },
       air: null,
-      shortIssuedAt: "2026-10-29T14:00",
-      midIssuedAt: "2026-10-29T06:00",
     });
     expect(report.days[0]).toMatchObject({ forecast: { sky: "맑음" }, air: { kind: "failed" } });
-    expect(report.airCheckedAt).toBeNull();
+    expect(report.airSource).toBeNull();
+  });
+
+  test("Open-Meteo는 16일까지 예보하므로 그 뒤 날짜는 15일 전부터 확인 가능하다", () => {
+    const report = buildReport({
+      checkIn: "2026-11-14",
+      checkOut: "2026-11-15",
+      now: NOW,
+      forecast: { days: new Map(), reachDays: REACH_DAYS["open-meteo"], source: { name: "open-meteo" } },
+      air: { grades: new Map(), reachDays: REACH_DAYS["open-meteo-air"], source: "open-meteo" },
+    });
+    expect(report.days[1]).toMatchObject({
+      forecast: { kind: "none", availableFrom: "2026-10-31" },
+      air: { kind: "none", availableFrom: "2026-11-11" },
+    });
+    expect(report.forecastSource).toEqual({ name: "open-meteo" });
   });
 });

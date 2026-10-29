@@ -1,23 +1,86 @@
 import {
   buildReport,
   issueIso,
+  mergeKma,
   midIssueTime,
   nearestMidCity,
+  openMeteoAirByDate,
+  REACH_DAYS,
   shortBaseTime,
   summarizeMid,
+  summarizeOpenMeteo,
   summarizeShort,
   toKmaGrid,
   worstAirByDate,
+  type AirGrade,
+  type AirSource,
+  type DayForecast,
+  type ForecastSource,
 } from "@/features/weather";
-import { fetchAirForecast, fetchMidForecast, fetchShortForecast } from "@/features/weather/server";
+import {
+  fetchAirForecast,
+  fetchMidForecast,
+  fetchOpenMeteoAir,
+  fetchOpenMeteoForecast,
+  fetchShortForecast,
+} from "@/features/weather/server";
 import { googlePlacesApiKey, kmaServiceKey } from "@/lib/env";
+import type { LatLng } from "@/lib/geo";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export async function GET(request: Request) {
-  const serviceKey = kmaServiceKey();
-  if (!serviceKey) return Response.json({ error: "missing-key" }, { status: 503 });
+type Forecast = { days: Map<string, DayForecast>; reachDays: number; source: ForecastSource };
+type Air = { grades: Map<string, AirGrade>; reachDays: number; source: AirSource };
 
+// KMA first when a service key is set; Open-Meteo (no key) otherwise or when KMA fails.
+async function loadForecast(point: LatLng, now: Date): Promise<Forecast> {
+  const serviceKey = kmaServiceKey();
+  if (serviceKey) {
+    try {
+      const base = shortBaseTime(now);
+      const tmFc = midIssueTime(now);
+      const [short, mid] = await Promise.all([
+        fetchShortForecast(toKmaGrid(point), base, { serviceKey }),
+        fetchMidForecast(nearestMidCity(point), tmFc, { serviceKey }),
+      ]);
+      return {
+        days: mergeKma(summarizeShort(short), summarizeMid(tmFc, mid.land, mid.temps)),
+        reachDays: REACH_DAYS.kma,
+        source: { name: "kma", shortIssuedAt: issueIso(`${base.baseDate}${base.baseTime}`), midIssuedAt: issueIso(tmFc) },
+      };
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  return {
+    days: summarizeOpenMeteo(await fetchOpenMeteoForecast(point)),
+    reachDays: REACH_DAYS["open-meteo"],
+    source: { name: "open-meteo" },
+  };
+}
+
+// Google Air Quality first when its key works; Open-Meteo otherwise. Air quality
+// is best effort: when both fail the forecast is still shown.
+async function loadAir(point: LatLng, now: Date): Promise<Air | null> {
+  const apiKey = googlePlacesApiKey();
+  if (apiKey) {
+    try {
+      const grades = worstAirByDate(await fetchAirForecast(point, now, { apiKey }));
+      return { grades, reachDays: REACH_DAYS.google, source: "google" };
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  try {
+    const grades = openMeteoAirByDate(await fetchOpenMeteoAir(point));
+    return { grades, reachDays: REACH_DAYS["open-meteo-air"], source: "open-meteo" };
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const point = { lat: Number(params.get("lat")), lng: Number(params.get("lng")) };
   const checkIn = params.get("checkIn") ?? "";
@@ -27,34 +90,10 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const base = shortBaseTime(now);
-  const tmFc = midIssueTime(now);
-  const googleKey = googlePlacesApiKey();
-
-  // Air quality is best effort: its failure leaves the KMA forecast in place.
-  const air = googleKey
-    ? fetchAirForecast(point, now, { apiKey: googleKey }).then(worstAirByDate, (error) => {
-        console.error(error);
-        return null;
-      })
-    : Promise.resolve(null);
-
+  const air = loadAir(point, now);
   try {
-    const [short, mid] = await Promise.all([
-      fetchShortForecast(toKmaGrid(point), base, { serviceKey }),
-      fetchMidForecast(nearestMidCity(point), tmFc, { serviceKey }),
-    ]);
-    const report = buildReport({
-      checkIn,
-      checkOut,
-      now,
-      short: summarizeShort(short),
-      mid: summarizeMid(tmFc, mid.land, mid.temps),
-      air: await air,
-      shortIssuedAt: issueIso(`${base.baseDate}${base.baseTime}`),
-      midIssuedAt: issueIso(tmFc),
-    });
-    return Response.json(report);
+    const forecast = await loadForecast(point, now);
+    return Response.json(buildReport({ checkIn, checkOut, now, forecast, air: await air }));
   } catch (error) {
     console.error(error);
     return Response.json({ error: "upstream" }, { status: 502 });
