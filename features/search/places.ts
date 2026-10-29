@@ -38,7 +38,24 @@ function toSearchPlace(p: GooglePlace): SearchPlace | null {
   const lat = p.location?.latitude;
   const lng = p.location?.longitude;
   if (!p.id || !p.displayName?.text || lat === undefined || lng === undefined) return null;
-  return { id: p.id, name: p.displayName.text, address: p.formattedAddress ?? "", lat, lng };
+  return { id: p.id, name: p.displayName.text, address: withoutCountry(p.formattedAddress ?? ""), lat, lng };
+}
+
+const SAME_PLACE_KM = 1;
+
+function roughKm(a: SearchPlace, b: SearchPlace): number {
+  const dLat = (a.lat - b.lat) * 111;
+  const dLng = (a.lng - b.lng) * 111 * Math.cos((a.lat * Math.PI) / 180);
+  return Math.hypot(dLat, dLng);
+}
+
+// Google often returns one place several times (e.g. a beach and its sub-areas).
+// Same name, ignoring spaces, within 1km counts as one candidate.
+function dropDuplicates(places: SearchPlace[]): SearchPlace[] {
+  const key = (p: SearchPlace) => p.name.replace(/\s/g, "");
+  return places.filter(
+    (p, i) => !places.slice(0, i).some((q) => key(q) === key(p) && roughKm(q, p) <= SAME_PLACE_KM),
+  );
 }
 
 function headers(apiKey: string, fieldMask: string) {
@@ -116,10 +133,9 @@ export async function findPlacesByText(text: string, deps: PlacesDeps): Promise<
   });
   if (!res.ok) throw new Error(`Text Search failed: ${res.status}`);
   const json = (await res.json()) as { places?: GooglePlace[] };
-  const candidates = (json.places ?? [])
-    .filter(isInKorea)
-    .map(toSearchPlace)
-    .filter((p): p is SearchPlace => p !== null);
+  const candidates = dropDuplicates(
+    (json.places ?? []).filter(isInKorea).map(toSearchPlace).filter((p): p is SearchPlace => p !== null),
+  );
   if (candidates.length === 0) return { kind: "none" };
   if (candidates.length === 1) return { kind: "single", place: candidates[0] };
   return { kind: "multiple", candidates };
