@@ -1,7 +1,10 @@
 // Turns SerpApi Google Hotels results into the lodging list the results screen shows.
 // Field names follow https://serpapi.com/google-hotels-api (checked 2026-10-29).
 
-export type LatLng = { lat: number; lng: number };
+import { haversineKm, roundKm, type LatLng } from "@/lib/geo";
+
+export type { LatLng };
+export { haversineKm };
 
 export type LodgingType = "motel" | "hotel" | "resort" | "other";
 
@@ -35,18 +38,6 @@ export type SerpProperty = {
   reviews?: number;
   images?: { thumbnail?: string; original_image?: string }[];
 };
-
-const EARTH_RADIUS_KM = 6371;
-
-export function haversineKm(a: LatLng, b: LatLng): number {
-  const rad = (d: number) => (d * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat);
-  const dLng = rad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
-}
-
-const roundKm = (km: number) => Math.round(km * 10) / 10;
 
 function lodgingType(p: SerpProperty): LodgingType {
   const name = p.name ?? "";
