@@ -12,3 +12,8 @@ export function naverSearchKeys(): { clientId: string; clientSecret: string } | 
   const clientSecret = process.env.NAVER_SEARCH_CLIENT_SECRET;
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
+
+// 공공데이터포털 서비스 키(Decoding). Used for KMA short and mid-term forecasts.
+export function kmaServiceKey(): string | null {
+  return process.env.KMA_SERVICE_KEY || null;
+}
