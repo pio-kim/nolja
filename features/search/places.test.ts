@@ -55,6 +55,30 @@ describe("추천 없이 검색한 장소 찾기", () => {
     });
     expect(result).toEqual({ kind: "none" });
   });
+
+  test("이름이 같고 1km 안에 있는 후보는 같은 장소로 보고 한 번만 셈한다", async () => {
+    // Real response for "경포해변" (2026-10-29): the same beach came back three times.
+    const result = await findPlacesByText("경포해변", {
+      apiKey: "test",
+      fetch: fakeFetch([
+        googlePlace("a", "경포해변", "강릉시 경포해변", "KR", 37.8054863, 128.9078306),
+        googlePlace("b", "경포해변", "강원특별자치도 강릉시 강문동 산1 경포해변", "KR", 37.8054757, 128.9078299),
+        googlePlace("c", "경포 해변", "강원특별자치도 강릉시 경포동", "KR", 37.8084208, 128.9036564),
+      ]),
+    });
+    expect(result).toEqual({
+      kind: "single",
+      place: { id: "a", name: "경포해변", address: "강릉시 경포해변", lat: 37.8054863, lng: 128.9078306 },
+    });
+  });
+
+  test("후보 주소 앞의 국가 이름은 빼고 보여준다", async () => {
+    const result = await findPlacesByText("양구 중앙시장", {
+      apiKey: "test",
+      fetch: fakeFetch([googlePlace("y", "중앙시장", "대한민국 양구군", "KR", 38.104, 127.989)]),
+    });
+    expect(result).toMatchObject({ kind: "single", place: { address: "양구군" } });
+  });
 });
 
 describe("장소 추천 목록", () => {
