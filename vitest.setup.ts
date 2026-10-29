@@ -4,3 +4,18 @@ import { afterEach } from "vitest";
 
 // globals: false 이므로 Testing Library 자동 cleanup이 걸리지 않는다.
 afterEach(cleanup);
+
+// jsdom does not implement matchMedia; components read it for reduced motion.
+if (!window.matchMedia) {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}
