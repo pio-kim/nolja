@@ -1,9 +1,16 @@
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
-import { formatGuests, formatStayLong, parseSearchQuery, ResultsSummary, toSearchQuery } from "@/features/search";
+import {
+  formatGuests,
+  formatStayLong,
+  nightsBetween,
+  parseSearchQuery,
+  ResultsSummary,
+  toSearchQuery,
+} from "@/features/search";
 
-import { ResultsLayout } from "./results-layout";
+import { ResultsView } from "./results-view";
 
 export default async function SearchPage({
   searchParams,
@@ -51,14 +58,12 @@ export default async function SearchPage({
           </p>
         </section>
 
-        <ResultsLayout origin={{ name: place.name, lat: place.lat, lng: place.lng }}>
-          <div className="rounded-2xl border bg-card p-10 text-center">
-            <h2 className="font-heading text-xl">숙소와 음식점을 준비하고 있어요</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              이 자리에 {place.name} 근처 숙소, 음식점·카페, 숙박 기간 날씨가 표시됩니다.
-            </p>
-          </div>
-        </ResultsLayout>
+        <ResultsView
+          key={toSearchQuery(conditions)}
+          place={place}
+          nights={nightsBetween(stay)}
+          stay={{ query: place.name, checkIn: stay.checkIn, checkOut: stay.checkOut, adults, children }}
+        />
       </main>
     </div>
   );
