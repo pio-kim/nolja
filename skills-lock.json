@@ -5,37 +5,55 @@
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/add-stack-context/SKILL.md",
-      "computedHash": "963265a45b37e496cb9e308a563f1940d5841e2cda54142d2bea3f6b59325dbd"
+      "computedHash": "5091b151eb53b6772484d25f5926656c5e1076af8dcf06ce88d98d2727105e24"
     },
     "babysit-specs": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/babysit-specs/SKILL.md",
-      "computedHash": "af63d664a410b29961954d8d4b8f3c1b274ee6aeefc72c3c1c4bc75de92e3d31"
+      "computedHash": "0f53a4947f21acb5e85511266de750c28b07bab9983de8847dcd834eb6a74cfe"
     },
     "build-prototype": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/build-prototype/SKILL.md",
-      "computedHash": "ef34e8f19f5ff2759ad0958377705b99d632f6714cb45d3b9e79f3a3b94d6066"
+      "computedHash": "1e54f7892e63faebcde23b7bc97a21ec417507e7647397e037a3652852417ef2"
+    },
+    "clean-branches": {
+      "source": "toy-crane/skills",
+      "sourceType": "github",
+      "skillPath": "skills/git/clean-branches/SKILL.md",
+      "computedHash": "abbc1353aacd9aff802dd8a04c1c3e365480ef31661a31994b9671bab96947c2"
     },
     "commit": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/git/commit/SKILL.md",
-      "computedHash": "f75ca87a7d4838eea1e649180ea9b275ba4e8d31df4e6ff33558e5b426eae67a"
+      "computedHash": "30955a246678464260b6943df8f8a529f83c7c95ff848017c803fe21a9549929"
     },
     "define-product": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/define-product/SKILL.md",
-      "computedHash": "a7fba03cb0068fc814f5b051e421d31d3422c5d37ee7c44a8b10e1c83cdf1344"
+      "computedHash": "4cd214cf8d64f2996e9320a5d36b2b9728736c64ecb74b757828990639d5433a"
     },
     "explain-visually": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/explain-visually/SKILL.md",
-      "computedHash": "35b45440595c394bfc9742324512c1c91b2235d2a35d7e6da8dc6cafda66add8"
+      "computedHash": "7901ef141951e9ebd1d952eb601f0eb78e8aebb29535e2d6d815d8ba48671654"
+    },
+    "expo-dev-loop": {
+      "source": "toy-crane/skills",
+      "sourceType": "github",
+      "skillPath": "skills/expo/expo-dev-loop/SKILL.md",
+      "computedHash": "2b9528f666412d70c63e3dfe9e478b21374227131cbba4efec20696dd6008abc"
+    },
+    "expo-smoke-test": {
+      "source": "toy-crane/skills",
+      "sourceType": "github",
+      "skillPath": "skills/expo/expo-smoke-test/SKILL.md",
+      "computedHash": "a7de24913ed40bdf9bea5134f2a294fce6d16b577ee32265c38a901d9a7fd082"
     },
     "find-skills": {
       "source": "vercel-labs/skills",
@@ -53,25 +71,25 @@
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/human-review/SKILL.md",
-      "computedHash": "ab21c961cd9f78ad5704fab8091a85bb1eae68ab17507335b0063f5efec84883"
+      "computedHash": "4e2091c63efbb8e2bd593b336c0ee54ec7ee72d2a1992971663a4f22c2416cbb"
     },
     "implement": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/implement/SKILL.md",
-      "computedHash": "90c659fdfdbf272a9a56f1fdc2467c86533162ffb3ea34141735782374378962"
+      "computedHash": "56423a700e86aee534d1bc431642033da2e44ec88bf8860492aa107979990cba"
     },
     "maintain-project-context": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/maintain-project-context/SKILL.md",
-      "computedHash": "d41f5a9440a14d9705691c7bbbbea0aaf620f4161b79578453a0606063a6782d"
+      "computedHash": "d79d4cab8af8669b6e34c27240f9c5b79df71cde7d13378bfd265655bb876c35"
     },
     "merge": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/git/merge/SKILL.md",
-      "computedHash": "aed98a4d97d663dfbb1ce1c8cb30e88d3571d812864f2ae016a21935fb51e227"
+      "computedHash": "ff37d6b088d9b456e7251c5c50ce962f3618bcca2b910de43d058c38c9b1771e"
     },
     "next-dev-loop": {
       "source": "vercel/next.js",
@@ -83,31 +101,43 @@
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/git/pr/SKILL.md",
-      "computedHash": "cdf826dc24d9d61f118e5e79b15e5f1c5b211cbdedaa261ddea89bc979ec8f60"
+      "computedHash": "22d5eb9fefd5cc6a0d7359dd2115b4ea9ae232f1634fe04f8294d11f3f2e5b2c"
     },
     "project-knowledge": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/project-knowledge/SKILL.md",
-      "computedHash": "0c9d8c43a458a94e78ca8d85bad1e538456f49cb29244a128d659c7f586e1042"
+      "computedHash": "3bf7f0b602f181c565aa2676668ac8c6f02cb9dc78a209d5291c3c23567c465a"
     },
     "pull": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/git/pull/SKILL.md",
-      "computedHash": "8ff763c806c2c712e408bfb81ff0702d4db1356a6f5a0b5320b44476b45aca6a"
+      "computedHash": "2546674b1db372e9c46f819dcdba671060aff6e55eab348a1045238d7ab9e689"
     },
     "push": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/git/push/SKILL.md",
-      "computedHash": "c63658f56b850a314290908db7dd1f116ed555afcdb4f4928152f69f401859e1"
+      "computedHash": "84ceb29ab8ff5118a3ed0c78d6444192b2eda512f3ea14ecc60923f915f7c1d0"
     },
     "resolve-follow-ups": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/resolve-follow-ups/SKILL.md",
-      "computedHash": "45b768dd4b7ace140c6df65e0e1986a6c7acba113900dd6e5881682f0774ab3b"
+      "computedHash": "291b13407cb2316b599c57ea57afdf856a982d7dc18caf95b4e239bfdccbb7e0"
+    },
+    "review-sessions": {
+      "source": "toy-crane/skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflow/review-sessions/SKILL.md",
+      "computedHash": "d31195e44ab3954d4c383a42b5983da53e06c899caacf885abfe1d427aa61489"
+    },
+    "setup-issue-tracker": {
+      "source": "toy-crane/skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflow/setup-issue-tracker/SKILL.md",
+      "computedHash": "a885762f69b82e4df7f4b7be12ed892c0a1fab742260d360941a7b2e489dcafc"
     },
     "shadcn": {
       "source": "shadcn-ui/ui",
@@ -119,25 +149,31 @@
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/shape-idea/SKILL.md",
-      "computedHash": "4aef1291843f652a73997645a2857f92947b95eb85bca05257ae3487003ba113"
+      "computedHash": "8f4fd5c34bb51dd18556e9659de801c61590a33a8f2d0305d1f0223d33f3e2f6"
     },
     "split-into-tasks": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/split-into-tasks/SKILL.md",
-      "computedHash": "eb0ac37cd33b8bb461f6a97553e99e517d4cd457b56fa439296b4f74c6ed7866"
+      "computedHash": "b6190571285726be47ac327f1c6bd61c645bbf7dadb7f393944b1d65998ecfdf"
     },
     "tdd": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/tdd/SKILL.md",
-      "computedHash": "e5b532fc5fa32e9459c5856eaf39fce076963cee4b2b86987dfb30cca3710843"
+      "computedHash": "9786d78b9370e59965ead014bda4ba3c6853c616927069dccfbcaba6a715162e"
+    },
+    "triage-issues": {
+      "source": "toy-crane/skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflow/triage-issues/SKILL.md",
+      "computedHash": "3fc882a116fb9a0dca2834ef9baf9dde1fc7c89de3f3362f2c250d96ea3b4240"
     },
     "update-project-skills": {
       "source": "toy-crane/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow/update-project-skills/SKILL.md",
-      "computedHash": "d32afd997c10adf6707b80ab0ee30c37638dc53b5f728dd539ce5ff058c0a432"
+      "computedHash": "45f3a660e6f1914fa87ec8d0899386b889a39fab68db9e5eec62cc8035ce2307"
     }
   }
 }

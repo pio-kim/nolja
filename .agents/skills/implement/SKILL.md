@@ -5,6 +5,36 @@ description: Implement or resume settled work from a selected spec folder as one
 
 # Implement
 
+This skill requires `tdd`, `babysit-specs`, and `project-knowledge`. Before
+doing any work, confirm each one is installed. When one is missing, stop and
+report it with its install command,
+`npx skills@latest add toy-crane/skills --skill <name>`, using the project's
+package manager runner where it pins one.
+
+## Claim the folder when a tracker coordinates it
+
+The input is always the spec folder. When the repository's `AGENTS.md` or
+`CLAUDE.md` carries an `## Issue tracker` section, read both files and use the
+first found and its linked detailed convention before finding this folder's
+issue. An `Issue: <tracker>:<id>` line in `spec.md` names the folder's one
+issue; fetch it by that ID and never search the tracker by title. Existing
+inline conventions remain valid. Use the convention's ID form, tool, and claim
+operation without requiring `setup-issue-tracker` to be installed.
+Claiming is the first write of the run, ahead of source, task, or spec edits.
+Check the convention's active-work signal before claiming: an issue already in
+progress requires the user's explicit request to resume, even when its assignee
+is the current account. Assign eligible work to the current tracker account and
+apply the convention's active state. Stop without changing source and report
+another account's claim, open blockers, an unreadable linked convention, or an
+unavailable tracker tool; continue unclaimed only on explicit user instruction.
+A folder without an `Issue:` line
+proceeds unclaimed; the PR that carries it creates its issue. Without the
+section, nothing here applies.
+
+End every commit's message with a `Spec-Folder: docs/specs/<slug>/` trailer so
+the pull request that follows can find the folder and close its issue; this trailer is
+repository information and is written whether or not a tracker exists.
+
 ## Load the current handoff
 
 Treat the selected spec folder as one handoff bundle anchored by `spec.md`.
@@ -49,9 +79,10 @@ baseline, so each check covers only what happened since the previous outcome.
 A mismatch that would change an approved outcome, acceptance criterion,
 off-limits area, or other product constraint stops that outcome before any
 source change: name the stale point and its evidence, then route it to
-`babysit-specs` for this spec folder alone when that skill is available, or
-present the exact decision for the user to settle through shaping when it is
-not. Naming the folder keeps the revision on the selected work unit; you still
+`babysit-specs` for this spec folder alone, handing it the stale point and its
+evidence; it hands back the revised `spec.md`, which this run reloads before
+continuing. Naming the folder keeps the revision on the selected work unit;
+you still
 never read a sibling spec folder. A stale spec caught here
 costs nothing, while the same discovery made mid-implementation discards work
 already done.
@@ -62,12 +93,33 @@ worker, or reviewer. Keep the spec folder as the single handoff instead of
 adding a roadmap, execution ledger, durable implementation plan, or run-state
 file.
 
+## Finish outside setup before changing source
+
+When `spec.md` lists items under `## Setup before implementation`, finish them
+after any claim and before the first source change. Do what you can of each
+item yourself within your current tools and authority, then check every done
+condition. If any item remains, report every remaining item at once, with what
+is left for the user and its done condition, and stop without changing source.
+Resume when the user says they are done and every condition passes; ask the
+user to confirm a condition only when you cannot observe it yourself. Never ask
+for, accept in chat, or print a secret value: the user places it where the
+product reads it, and you check the condition through its observable effect or
+the user's confirmation. A `None.` section or a spec without the section needs
+nothing here.
+
 ## Implement and reconcile one outcome
 
-Select a public test seam from the agreed behavior and existing interfaces.
-Briefly state the seam and the behavior it will verify, then use the `tdd` skill
-when available. Otherwise implement one red-to-green behavior at a time through
-the selected seam. Resolve technical uncertainty through repository evidence;
+Map every acceptance criterion of the active outcome to at least one check: an
+automated test, runtime evidence, or both. Behavior in the running product
+still owes runtime evidence when a test also proves it. Hand the `tdd` skill
+the active outcome, the criteria to prove by automated tests, the active
+task's constraints and approved references, and `spec.md` as design context;
+the handoff does not authorize later or blocked outcomes. `tdd` selects the
+public test seams and hands back the code change, each new test tied to its
+criterion or named reason with the failing assertion it was seen to produce,
+and any handed criterion it could not prove automatically with the reason.
+Cover those through runtime evidence or keep them incomplete.
+Resolve technical uncertainty through repository evidence;
 ask the user only when expected behavior remains unclear or proceeding would
 change the agreed product contract.
 
@@ -143,9 +195,9 @@ success.
 
 Resolve in-scope discrepancies and affected tasks in the current work. Route a
 workaround whose root cause remains open, or an evidenced out-of-scope defect,
-through `project-knowledge` at discovery time. If unavailable, write the
-symptom, observed evidence, suspected cause, what was tried, and proposed next
-step to `docs/follow-ups/<slug>.md`.
+through `project-knowledge` at discovery time, handing it the symptom, observed
+evidence, suspected cause, what was tried, and proposed next step, and keep
+the `docs/follow-ups/<slug>.md` path it reports for the handoff.
 
 ## Complete deterministic verification before review
 
@@ -216,12 +268,12 @@ for another look at a confirmed user command instead of invoking the reviewer
 again.
 
 Record every other finding rather than repairing it: an evidenced defect or open
-workaround through `project-knowledge`, or as `docs/follow-ups/<slug>.md` when
-that skill is absent; a trade-off the spec or a decision contract already
-disposed of, as disposed; an out-of-scope, stylistic, or unconfirmed finding, in
-the handoff; and a material consequence the spec leaves open, such as a security
-trade-off or a pathological-input failure, as a decision the user owns, with
-`human-review` offered for judging it.
+workaround through `project-knowledge` with the same five fields, keeping the
+follow-up path it reports; a trade-off the spec or a decision
+contract already disposed of, as disposed; an out-of-scope, stylistic, or
+unconfirmed finding, in the handoff; and a material consequence the spec leaves
+open, such as a security trade-off or a pathological-input failure, as a
+decision the user owns.
 
 ## Verify the final product after review and repairs
 
@@ -252,7 +304,26 @@ been explicitly waived by the user, and the must-fix findings to be repaired and
 reverified. An uninspected required source or uncompared applicable criterion
 keeps the result incomplete. A completed review may leave recorded findings; zero
 findings is not the gate. Report the sources and reviewed scope used for the
-claim, the result or explicit waiver, what changed, and what remains open.
+claim, each acceptance criterion with its checks and evidence, the result or
+explicit waiver, what changed, and what remains open.
+
+## Make the delivered change directly reviewable
+
+Close the completion report by making the delivered product change directly
+reviewable from the user's point of view. The user should not need to ask what
+changed or request the important screens after the implementation is reported
+complete.
+
+Choose the strongest evidence the current executable revision affords and
+present enough of it for the user to understand the resulting experience,
+follow its important downstream effects, and notice a mismatch with the
+approved intent. Use actual product views when the change is best judged
+visually, observed behavior when interaction matters, and concise explanation
+for rules that cannot be seen.
+
+Do not organize this account around files or tests, although report relevant
+verification separately. Do not present a prototype or stale capture as proof
+of the delivered revision, and name anything important that could not be shown.
 
 ## Hand off the runnable product
 
