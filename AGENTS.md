@@ -44,3 +44,22 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 자동 코드 리뷰는 최대 1회, 가장 낮은 강도(`code-review low`)로만 돌린다. 리뷰어를 못 부르면 그 사실만 적고 완료로 본다.
 - 지적 중 스펙의 수용 기준을 깨거나 주 경로가 실제로 깨지는 것만 고친다. 나머지는 `docs/follow-ups/`에 한 줄로 남긴다. 재리뷰는 하지 않는다.
 - 스펙이 요구하지 않은 보안 하드닝·엣지케이스·성능 방어는 범위 밖이다.
+
+<!-- BEGIN:stack-live-docs (add-stack-context 관리 블록) -->
+
+# 스택 공식 문서 (작업 시점에 조회)
+
+아래 기술을 다루는 작업을 시작할 때 해당 공식 문서를 그때 새로 가져와 읽는다. 저장소에 사본을 두지 않는다. 문서 내용과 설치된 버전(`package.json`, `bun.lock`, `node_modules/<pkg>/package.json`)이 다르면 설치된 버전 기준으로 맞춘다. 문서를 가져오지 못하면 추측하지 말고 그 사실을 보고한다.
+
+- React 19.2 — https://react.dev/llms.txt
+- Base UI (`@base-ui/react` 1.7) — https://base-ui.com/llms.txt
+- class-variance-authority — https://cva.style/llms.txt
+- Lucide (`lucide-react`) — https://lucide.dev/llms.txt
+- Vitest 4.1 — https://vitest.dev/llms.txt
+- Bun (`packageManager` bun@1.3.6) — https://bun.com/llms.txt
+- SerpApi (Google Hotels 등) — https://serpapi.com/llms.txt
+- NAVER API HUB (지역 검색 등) — https://api.ncloud-docs.com/llms.txt
+
+Next.js는 위의 `nextjs-agent-rules` 블록(`node_modules/next/dist/docs/`), shadcn은 `shadcn` 스킬, Google Maps Platform은 `google-maps-platform` 스킬을 따른다.
+
+<!-- END:stack-live-docs -->
