@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRightIcon, CoffeeIcon, StarIcon, UtensilsIcon } from "lucide-react";
+import { ArrowUpRightIcon, CoffeeIcon, StarIcon, StoreIcon, UtensilsIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,7 +9,12 @@ import { cn } from "@/lib/utils";
 import { sortPlaces, type Place, type PlaceCategory, type PlaceSort } from "./places";
 import type { NearbyBase, PlacesState } from "./use-places";
 
-const CATEGORY_LABEL: Record<PlaceCategory, string> = { restaurant: "음식점", cafe: "카페" };
+export const CATEGORY_LABEL: Record<PlaceCategory, string> = {
+  restaurant: "음식점",
+  cafe: "카페",
+  convenience_store: "편의점",
+};
+const CATEGORY_ICON = { restaurant: UtensilsIcon, cafe: CoffeeIcon, convenience_store: StoreIcon };
 
 export function visiblePlaces(state: PlacesState, sort: PlaceSort): Place[] {
   return state.status === "ready" ? sortPlaces(state.places, sort) : [];
@@ -122,7 +127,7 @@ export function PlaceList({
 }
 
 function PlaceCard({ place: p, active, onHover }: { place: Place; active: boolean; onHover: (id: string | null) => void }) {
-  const Icon = p.category === "cafe" ? CoffeeIcon : UtensilsIcon;
+  const Icon = CATEGORY_ICON[p.category];
   return (
     <a
       href={p.mapsUrl}

@@ -1,8 +1,11 @@
-// Restaurants and cafes around a base point, from Google Places (New) Nearby
-// Search and, for Korea, the NAVER local search as a supplement.
+// Restaurants, cafes and convenience stores around a base point, from Google
+// Places (New) Nearby Search and, for Korea, the NAVER local search as a supplement.
 import { haversineKm, roundKm, type LatLng } from "@/lib/geo";
 
-export type PlaceCategory = "restaurant" | "cafe";
+// Values double as Google Places primary types for `includedTypes`.
+export type PlaceCategory = "restaurant" | "cafe" | "convenience_store";
+
+export const PLACE_CATEGORIES: PlaceCategory[] = ["restaurant", "cafe", "convenience_store"];
 
 export type Place = {
   id: string;

@@ -16,31 +16,44 @@ import {
   WIDE_RADIUS_KM,
 } from "@/features/lodging/ui";
 import { OriginMap, type MapMarker } from "@/features/map/origin-map";
-import type { PlaceCategory, PlaceSort } from "@/features/nearby";
-import { PlaceList, usePlaces, visiblePlaces, type NearbyBase } from "@/features/nearby/ui";
+import { PLACE_CATEGORIES, type PlaceCategory, type PlaceSort } from "@/features/nearby";
+import { CATEGORY_LABEL, PlaceList, usePlaces, visiblePlaces, type NearbyBase } from "@/features/nearby/ui";
 import type { SearchPlace } from "@/features/search";
 import { cn } from "@/lib/utils";
 
 type Tab = "lodging" | PlaceCategory;
 
+const TABS: Tab[] = ["lodging", ...PLACE_CATEGORIES];
+
 const TAB_DOT: Record<Tab, string> = {
   lodging: "bg-marker-lodging",
   restaurant: "bg-marker-restaurant",
   cafe: "bg-marker-cafe",
+  convenience_store: "bg-marker-store",
 };
 
-// Composes lodgings, nearby restaurants and cafes, the detail sheet and the map
-// around one search place. Opening a lodging makes it the base point for food.
+// Composes lodgings, nearby restaurants, cafes and convenience stores, the
+// detail sheet and the map around one search place. Opening a lodging makes it
+// the base point for nearby places.
 // List 55% / map 45% on wide screens; list first with a map toggle below 1024px.
 export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay: LodgingStay; nights: number }) {
   const { state, retry } = useLodgings(stay, place);
   const [tab, setTab] = useState<Tab>("lodging");
-  const [visited, setVisited] = useState<Record<PlaceCategory, boolean>>({ restaurant: false, cafe: false });
+  const [visited, setVisited] = useState<Record<PlaceCategory, boolean>>({
+    restaurant: false,
+    cafe: false,
+    convenience_store: false,
+  });
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Lodging | null>(null);
   const [baseLodging, setBaseLodging] = useState<Lodging | null>(null);
-  const [sort, setSort] = useState<Record<PlaceCategory, PlaceSort>>({ restaurant: "rating", cafe: "rating" });
+  // Convenience stores are picked by how close they are, not by rating.
+  const [sort, setSort] = useState<Record<PlaceCategory, PlaceSort>>({
+    restaurant: "rating",
+    cafe: "rating",
+    convenience_store: "distance",
+  });
   const [mapOpen, setMapOpen] = useState(false);
 
   const lodgings = visibleLodgings(state, radiusKm);
@@ -52,7 +65,8 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
   const base: NearbyBase = baseLodging ?? { name: place.name, lat: place.lat, lng: place.lng };
   const restaurants = usePlaces(base, "restaurant", visited.restaurant);
   const cafes = usePlaces(base, "cafe", visited.cafe);
-  const nearby = { restaurant: restaurants, cafe: cafes };
+  const stores = usePlaces(base, "convenience_store", visited.convenience_store);
+  const nearby = { restaurant: restaurants, cafe: cafes, convenience_store: stores };
 
   const select = (lodging: Lodging | null) => {
     if (lodging) {
@@ -95,10 +109,10 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     <div className="relative grid items-start gap-8 pt-6 lg:grid-cols-[55fr_45fr]">
       <Tabs value={tab} onValueChange={(v) => changeTab(v as Tab)} className={cn("gap-4", mapOpen && "max-lg:hidden")}>
         <TabsList className="h-11 rounded-full p-1">
-          {(["lodging", "restaurant", "cafe"] as const).map((t) => (
-            <TabsTrigger key={t} value={t} className="rounded-full px-4 text-base data-active:font-semibold">
+          {TABS.map((t) => (
+            <TabsTrigger key={t} value={t} className="rounded-full px-3 text-base data-active:font-semibold sm:px-4">
               <span className={cn("size-2 rounded-full", TAB_DOT[t])} />
-              {t === "lodging" ? "숙소" : t === "restaurant" ? "음식점" : "카페"}
+              {t === "lodging" ? "숙소" : CATEGORY_LABEL[t]}
               {count(t) !== null && <span className="text-sm font-normal text-muted-foreground">{count(t)}</span>}
             </TabsTrigger>
           ))}
@@ -119,7 +133,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
             onRetry={retry}
           />
         </TabsContent>
-        {(["restaurant", "cafe"] as const).map((t) => (
+        {PLACE_CATEGORIES.map((t) => (
           <TabsContent key={t} value={t}>
             <PlaceList
               state={nearby[t].state}

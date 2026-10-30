@@ -17,13 +17,14 @@ export type MapMarker = {
   lng: number;
   label: string;
   title: string;
-  kind: "lodging" | "restaurant" | "cafe";
+  kind: "lodging" | "restaurant" | "cafe" | "convenience_store";
 };
 
 const MARKER_STYLE: Record<MapMarker["kind"], string> = {
   lodging: "bg-marker-lodging text-primary-foreground",
   restaurant: "bg-marker-restaurant text-white",
   cafe: "bg-marker-cafe text-white",
+  convenience_store: "bg-marker-store text-white",
 };
 
 // Zooms so the origin and every marker are in view whenever the marker set changes.

@@ -26,6 +26,19 @@ describe("주변 장소 조회 요청", () => {
     expect(headers["X-Goog-FieldMask"]).toContain("places.rating");
   });
 
+  test("편의점은 Google 장소 종류 convenience_store로 요청한다", async () => {
+    let body: Record<string, unknown> = {};
+    await searchGoogleNearby({ lat: 37.75, lng: 128.9 }, "convenience_store", {
+      apiKey: "k",
+      fetch: async (_url, init) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({}));
+      },
+    });
+
+    expect(body).toMatchObject({ includedTypes: ["convenience_store"] });
+  });
+
   test("네이버 지역 검색은 리뷰 많은 순으로 5개를 API HUB 인증 헤더와 함께 요청한다", async () => {
     let url = "";
     let headers: Record<string, string> = {};
