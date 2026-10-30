@@ -3,7 +3,8 @@
 import { haversineKm, roundKm, type LatLng } from "@/lib/geo";
 
 // "lodging" lists nearby stays without prices, for when price comparison is unavailable.
-export type PlaceCategory = "restaurant" | "cafe" | "lodging";
+// Values are Google Places (New) place types.
+export type PlaceCategory = "restaurant" | "cafe" | "lodging" | "gas_station" | "laundry";
 
 export type Place = {
   id: string;

@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRightIcon, BedDoubleIcon, StarIcon } from "lucide-react";
+import { ArrowUpRightIcon, BedDoubleIcon, NavigationIcon, StarIcon } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { directionsUrl } from "@/lib/directions";
 import { cn } from "@/lib/utils";
 
 import { bookingSearchLinks } from "./booking-links";
@@ -28,6 +29,7 @@ export function LodgingList({
   query,
   hoveredId,
   selectedId,
+  pickedId,
   sellersOf,
   onHover,
   onSelect,
@@ -40,6 +42,7 @@ export function LodgingList({
   query: string;
   hoveredId: string | null;
   selectedId: string | null;
+  pickedId: string | null; // picked on the map
   sellersOf: (id: string) => SellersState;
   onHover: (id: string | null) => void;
   onSelect: (lodging: Lodging) => void;
@@ -110,6 +113,7 @@ export function LodgingList({
                 sellers={sellersOf(l.id)}
                 nights={nights}
                 active={l.id === hoveredId || l.id === selectedId}
+                picked={l.id === pickedId}
                 onHover={onHover}
                 onSelect={onSelect}
               />
@@ -153,6 +157,7 @@ function LodgingCard({
   sellers,
   nights,
   active,
+  picked,
   onHover,
   onSelect,
 }: {
@@ -160,69 +165,91 @@ function LodgingCard({
   sellers: SellersState;
   nights: number;
   active: boolean;
+  picked: boolean;
   onHover: (id: string | null) => void;
   onSelect: (lodging: Lodging) => void;
 }) {
+  // The directions link sits beside the card button, since a link cannot sit inside it.
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(l)}
-      onMouseEnter={() => onHover(l.id)}
-      onMouseLeave={() => onHover(null)}
-      onFocus={() => onHover(l.id)}
-      onBlur={() => onHover(null)}
-      className={cn(
-        "group grid w-full overflow-hidden rounded-2xl border bg-card text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-transparent hover:shadow-[0_14px_32px_rgba(0,0,0,0.08)] sm:grid-cols-[200px_1fr]",
-        active && "-translate-y-0.5 border-foreground shadow-[0_14px_32px_rgba(0,0,0,0.08)]",
-      )}
-    >
-      <div className="relative h-44 overflow-hidden bg-muted sm:h-full sm:min-h-44">
-        {l.photo ? (
-          <Image
-            src={l.photo}
-            alt=""
-            fill
-            sizes="(min-width: 640px) 200px, 100vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="grid h-full place-items-center text-muted-foreground">
-            <BedDoubleIcon className="size-6" />
-          </div>
+    <div data-item-id={l.id} className="relative">
+      <button
+        type="button"
+        onClick={() => onSelect(l)}
+        onMouseEnter={() => onHover(l.id)}
+        onMouseLeave={() => onHover(null)}
+        onFocus={() => onHover(l.id)}
+        onBlur={() => onHover(null)}
+        className={cn(
+          "group grid w-full overflow-hidden rounded-2xl border bg-card text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-transparent hover:shadow-[0_14px_32px_rgba(0,0,0,0.08)] sm:grid-cols-[200px_1fr]",
+          active && "-translate-y-0.5 border-foreground shadow-[0_14px_32px_rgba(0,0,0,0.08)]",
+          picked && "border-foreground ring-2 ring-foreground",
         )}
-        <span className="absolute top-3 left-3 rounded-full bg-white/90 px-2 py-0.5 text-xs text-[#111]">
-          {TYPE_LABEL[l.type]}
-        </span>
-      </div>
-      <div className="grid content-start gap-2 p-4 sm:px-5">
-        <h3 className="font-heading text-lg leading-snug">{l.name}</h3>
-        <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-          <span>{l.distanceKm.toFixed(1)}km</span>
-          {l.rating !== null ? (
-            <span className="flex items-center gap-1">
-              <StarIcon className="size-3.5 fill-current" />
-              <b className="font-semibold text-foreground">{l.rating.toFixed(1)}</b>({l.reviewCount.toLocaleString("ko-KR")})
+      >
+        <div className="relative h-44 overflow-hidden bg-muted sm:h-full sm:min-h-44">
+          {picked && (
+            <span className="absolute top-3 right-3 z-10 rounded-full bg-foreground px-2 py-0.5 text-xs font-semibold text-background">
+              선택됨
             </span>
-          ) : (
-            <span>평점 없음</span>
           )}
+          {l.photo ? (
+            <Image
+              src={l.photo}
+              alt=""
+              fill
+              sizes="(min-width: 640px) 200px, 100vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="grid h-full place-items-center text-muted-foreground">
+              <BedDoubleIcon className="size-6" />
+            </div>
+          )}
+          <span className="absolute top-3 left-3 rounded-full bg-white/90 px-2 py-0.5 text-xs text-[#111]">
+            {TYPE_LABEL[l.type]}
+          </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-end justify-between gap-2 border-t pt-3">
-          <div className="text-xl font-bold tabular-nums">
-            <span className="mr-1.5 text-sm font-normal text-muted-foreground">{nights}박 총액</span>
-            {won(l.totalPrice)}
+        <div className="grid content-start gap-2 p-4 sm:px-5">
+          <h3 className="font-heading text-lg leading-snug">{l.name}</h3>
+          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+            <span>{l.distanceKm.toFixed(1)}km</span>
+            {l.rating !== null ? (
+              <span className="flex items-center gap-1">
+                <StarIcon className="size-3.5 fill-current" />
+                <b className="font-semibold text-foreground">{l.rating.toFixed(1)}</b>({l.reviewCount.toLocaleString("ko-KR")})
+              </span>
+            ) : (
+              <span>평점 없음</span>
+            )}
           </div>
-          <div className="text-right text-sm text-muted-foreground">
-            {[l.pricePerNight !== null && `1박 ${won(l.pricePerNight)}`, l.taxIncluded !== null && taxLabel(l.taxIncluded)]
-              .filter(Boolean)
-              .join(" · ")}
+          <div className="mt-1 flex flex-wrap items-end justify-between gap-2 border-t pt-3">
+            <div className="text-xl font-bold tabular-nums">
+              <span className="mr-1.5 text-sm font-normal text-muted-foreground">{nights}박 총액</span>
+              {won(l.totalPrice)}
+            </div>
+            <div className="text-right text-sm text-muted-foreground">
+              {[l.pricePerNight !== null && `1박 ${won(l.pricePerNight)}`, l.taxIncluded !== null && taxLabel(l.taxIncluded)]
+                .filter(Boolean)
+                .join(" · ")}
+            </div>
           </div>
+          <p className="pr-24 text-sm text-muted-foreground">
+            <SellerLine sellers={sellers} />
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-          <SellerLine sellers={sellers} />
-        </p>
-      </div>
-    </button>
+      </button>
+      <a
+        href={directionsUrl(l.name, l.lat, l.lng)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={buttonVariants({
+          variant: "outline",
+          size: "sm",
+          className: "absolute right-4 bottom-4 rounded-full bg-background px-3",
+        })}
+      >
+        <NavigationIcon /> 길찾기
+      </a>
+    </div>
   );
 }
 

@@ -14,6 +14,8 @@
   --color-marker-lodging: var(--marker-lodging);
   --color-marker-restaurant: var(--marker-restaurant);
   --color-marker-cafe: var(--marker-cafe);
+  --color-marker-gas: var(--marker-gas);
+  --color-marker-laundry: var(--marker-laundry);
   --color-marker-origin: var(--marker-origin);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -76,6 +78,8 @@
   --marker-lodging: #111111;
   --marker-restaurant: #C2553D;
   --marker-cafe: #3F7D5C;
+  --marker-gas: #9A6B2F;
+  --marker-laundry: #6B5B95;
   --marker-origin: #111111;
   --chart-1: #111111;
   --chart-2: #C2553D;

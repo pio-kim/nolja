@@ -2,11 +2,12 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
-import { ArrowUpRightIcon, StarIcon } from "lucide-react";
+import { ArrowUpRightIcon, NavigationIcon, StarIcon } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { directionsUrl } from "@/lib/directions";
 import { cn } from "@/lib/utils";
 
 import { bookingSearchLinks } from "./booking-links";
@@ -78,6 +79,14 @@ export function LodgingDetail({
                 )}
                 <span>Google 평점 · 리뷰는 예약 사이트에서 읽어 보세요</span>
               </SheetDescription>
+              <a
+                href={directionsUrl(current.name, current.lat, current.lng)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm", className: "w-fit rounded-full px-3" })}
+              >
+                <NavigationIcon /> 카카오맵으로 길찾기
+              </a>
             </SheetHeader>
 
             <section className="grid gap-3 p-6 pt-4">
