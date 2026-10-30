@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRightIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,27 +18,35 @@ import {
 } from "@/features/lodging/ui";
 import { OriginMap, type MapMarker } from "@/features/map/origin-map";
 import { areaOf, type PlaceCategory, type PlaceSort } from "@/features/nearby";
-import { PlaceList, usePlaces, visiblePlaces, type NearbyBase } from "@/features/nearby/ui";
+import { CATEGORY_LABEL, PlaceList, usePlaces, visiblePlaces, type NearbyBase } from "@/features/nearby/ui";
 import type { SearchPlace } from "@/features/search";
 import { cn } from "@/lib/utils";
 
-type Tab = "lodging" | PlaceCategory;
+// Tabs beside lodging, all listed around the same base point.
+const NEARBY_TABS = ["restaurant", "cafe", "gas_station", "laundry"] as const;
+type NearbyTab = (typeof NEARBY_TABS)[number];
+type Tab = "lodging" | NearbyTab;
 
 const TAB_DOT: Record<Tab, string> = {
   lodging: "bg-marker-lodging",
   restaurant: "bg-marker-restaurant",
   cafe: "bg-marker-cafe",
+  gas_station: "bg-marker-gas",
+  laundry: "bg-marker-laundry",
 };
 
-// Composes lodgings, nearby restaurants and cafes, the detail sheet and the map
-// around one search place. Opening a lodging makes it the base point for food.
+const notVisited: Record<NearbyTab, boolean> = { restaurant: false, cafe: false, gas_station: false, laundry: false };
+
+// Composes lodgings, nearby places (restaurants, cafes, gas stations, laundry),
+// the detail sheet and the map around one search place. Opening a lodging makes
+// it the base point for the nearby tabs.
 // List 55% / map 45% on wide screens; list first with a map toggle below 1024px.
 // When price comparison fails, the lodging tab lists nearby stays from place
 // search instead, without prices, with links to the booking sites.
 export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay: LodgingStay; nights: number }) {
   const { state, retry } = useLodgings(stay, place);
   const [tab, setTab] = useState<Tab>("lodging");
-  const [visited, setVisited] = useState<Record<"restaurant" | "cafe", boolean>>({ restaurant: false, cafe: false });
+  const [visited, setVisited] = useState(notVisited);
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Lodging | null>(null);
@@ -47,8 +55,22 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     restaurant: "rating",
     cafe: "rating",
     lodging: "rating",
+    gas_station: "distance",
+    laundry: "distance",
   });
   const [mapOpen, setMapOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  // The place picked on the map: it stays marked on the map and in the list
+  // until another one is picked or the tab changes. A new object per pick
+  // scrolls to the card again even when the same marker is picked twice.
+  const [picked, setPicked] = useState<{ id: string } | null>(null);
+
+  // Runs after the list is shown again on narrow screens, where the map hides it.
+  useEffect(() => {
+    if (!picked || mapOpen) return;
+    const card = listRef.current?.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(picked.id)}"]`);
+    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [picked, mapOpen]);
 
   const lodgings = visibleLodgings(state, radiusKm);
   const sellers = useSellerPrefetch(
@@ -57,9 +79,12 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
   );
 
   const base: NearbyBase = baseLodging ?? { name: place.name, lat: place.lat, lng: place.lng };
-  const restaurants = usePlaces(base, "restaurant", visited.restaurant);
-  const cafes = usePlaces(base, "cafe", visited.cafe);
-  const nearby = { restaurant: restaurants, cafe: cafes };
+  const nearby = {
+    restaurant: usePlaces(base, "restaurant", visited.restaurant),
+    cafe: usePlaces(base, "cafe", visited.cafe),
+    gas_station: usePlaces(base, "gas_station", visited.gas_station),
+    laundry: usePlaces(base, "laundry", visited.laundry),
+  };
 
   const searchBase: NearbyBase = { name: place.name, lat: place.lat, lng: place.lng };
   const unpriced = usePlaces(searchBase, "lodging", state.status === "error");
@@ -76,6 +101,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
 
   const changeTab = (next: Tab) => {
     setTab(next);
+    setPicked(null);
     setHoveredId(null);
     if (next !== "lodging") setVisited((v) => ({ ...v, [next]: true }));
   };
@@ -93,13 +119,13 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     tab === "lodging" && showUnpriced
       ? visiblePlaces(unpriced.state, sort.lodging).map((p) => placeMarker(p, "lodging"))
       : tab === "lodging"
-      ? lodgings.map((l) => ({ id: l.id, lat: l.lat, lng: l.lng, label: manwon(l.totalPrice), title: l.name, kind: "lodging" }))
-      : [
-          ...visiblePlaces(nearby[tab].state, sort[tab]).map((p) => placeMarker(p, tab)),
-          ...(baseLodging
-            ? [{ id: baseLodging.id, lat: baseLodging.lat, lng: baseLodging.lng, label: "숙소", title: baseLodging.name, kind: "lodging" as const }]
-            : []),
-        ];
+        ? lodgings.map((l) => ({ id: l.id, lat: l.lat, lng: l.lng, label: manwon(l.totalPrice), title: l.name, kind: "lodging" }))
+        : [
+            ...visiblePlaces(nearby[tab].state, sort[tab]).map((p) => placeMarker(p, tab)),
+            ...(baseLodging
+              ? [{ id: baseLodging.id, lat: baseLodging.lat, lng: baseLodging.lng, label: "숙소", title: baseLodging.name, kind: "lodging" as const }]
+              : []),
+          ];
 
   const count = (t: Tab) => {
     if (t === "lodging" && showUnpriced) return unpriced.state.status === "ready" ? unpriced.state.places.length : null;
@@ -110,12 +136,18 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
 
   return (
     <div className="relative grid items-start gap-8 pt-6 lg:grid-cols-[55fr_45fr]">
-      <Tabs value={tab} onValueChange={(v) => changeTab(v as Tab)} className={cn("gap-4", mapOpen && "max-lg:hidden")}>
-        <TabsList className="h-11 rounded-full p-1">
-          {(["lodging", "restaurant", "cafe"] as const).map((t) => (
-            <TabsTrigger key={t} value={t} className="rounded-full px-4 text-base data-active:font-semibold">
+      <Tabs
+        ref={listRef}
+        value={tab}
+        onValueChange={(v) => changeTab(v as Tab)}
+        className={cn("min-w-0 gap-4", mapOpen && "max-lg:hidden")}
+      >
+        {/* Five tabs do not fit a phone; they scroll sideways instead of wrapping. */}
+        <TabsList className="h-11 max-w-full justify-start overflow-x-auto rounded-full p-1">
+          {(["lodging", ...NEARBY_TABS] as const).map((t) => (
+            <TabsTrigger key={t} value={t} className="shrink-0 rounded-full px-4 text-base data-active:font-semibold">
               <span className={cn("size-2 rounded-full", TAB_DOT[t])} />
-              {t === "lodging" ? "숙소" : t === "restaurant" ? "음식점" : "카페"}
+              {CATEGORY_LABEL[t]}
               {count(t) !== null && <span className="text-sm font-normal text-muted-foreground">{count(t)}</span>}
             </TabsTrigger>
           ))}
@@ -132,6 +164,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               notice={<UnpricedNotice query={place.name} onRetry={retry} />}
               sort={sort.lodging}
               hoveredId={hoveredId}
+              selectedId={picked?.id ?? null}
               onSort={(s) => setSort((prev) => ({ ...prev, lodging: s }))}
               onHover={setHoveredId}
               onResetBase={() => {}}
@@ -145,6 +178,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               query={place.name}
               hoveredId={hoveredId}
               selectedId={selected?.id ?? null}
+              pickedId={picked?.id ?? null}
               sellersOf={sellers.get}
               onHover={setHoveredId}
               onSelect={select}
@@ -153,7 +187,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
             />
           )}
         </TabsContent>
-        {(["restaurant", "cafe"] as const).map((t) => (
+        {NEARBY_TABS.map((t) => (
           <TabsContent key={t} value={t}>
             <PlaceList
               state={nearby[t].state}
@@ -163,6 +197,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               area={areaOf(place.address)}
               sort={sort[t]}
               hoveredId={hoveredId}
+              selectedId={picked?.id ?? null}
               onSort={(s) => setSort((prev) => ({ ...prev, [t]: s }))}
               onHover={setHoveredId}
               onResetBase={() => setBaseLodging(null)}
@@ -176,11 +211,14 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
         origin={{ name: place.name, lat: place.lat, lng: place.lng }}
         markers={markers}
         highlightedId={hoveredId ?? (tab === "lodging" ? selected?.id : null) ?? null}
+        selectedId={picked?.id ?? null}
         onMarkerHover={setHoveredId}
         onMarkerClick={(id) => {
           const lodging = lodgings.find((l) => l.id === id) ?? (baseLodging?.id === id ? baseLodging : null);
           if (lodging) select(lodging);
-          else setHoveredId(id);
+          // Bring the picked place into view in the list; on phones, back to the list first.
+          setMapOpen(false);
+          setPicked({ id });
         }}
         className={cn(
           "h-[70vh] min-h-[420px] lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)]",
