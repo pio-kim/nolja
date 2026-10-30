@@ -1,9 +1,10 @@
 import { toLodgings } from "@/features/lodging";
-import { fetchLodgingProperties, readLodgingStay } from "@/features/lodging/server";
+import { diskCache, fetchLodgingProperties, readLodgingStay } from "@/features/lodging/server";
 import { serpApiKey } from "@/lib/env";
 
 // Results within 5km are returned so the screen can widen from 3km without refetching.
 const MAX_RADIUS_KM = 5;
+const cache = diskCache();
 
 export async function GET(request: Request) {
   const apiKey = serpApiKey();
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const properties = await fetchLodgingProperties(stay, { apiKey });
+    const properties = await fetchLodgingProperties(stay, { apiKey, cache });
     const lodgings = toLodgings(properties, { lat, lng }, MAX_RADIUS_KM);
     return Response.json({ lodgings, fetchedAt: new Date().toISOString() });
   } catch (error) {

@@ -17,6 +17,9 @@
 /blob-report
 /playwright/.cache
 
+# SerpApi response cache (features/lodging/response-cache.ts)
+/.cache/
+
 # next.js
 /.next/
 /out/

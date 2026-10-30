@@ -16,7 +16,7 @@ import {
   WIDE_RADIUS_KM,
 } from "@/features/lodging/ui";
 import { OriginMap, type MapMarker } from "@/features/map/origin-map";
-import type { PlaceCategory, PlaceSort } from "@/features/nearby";
+import { areaOf, type PlaceCategory, type PlaceSort } from "@/features/nearby";
 import { PlaceList, usePlaces, visiblePlaces, type NearbyBase } from "@/features/nearby/ui";
 import type { SearchPlace } from "@/features/search";
 import { cn } from "@/lib/utils";
@@ -126,6 +126,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               category={t}
               base={base}
               baseIsLodging={baseLodging !== null}
+              area={areaOf(place.address)}
               sort={sort[t]}
               hoveredId={hoveredId}
               onSort={(s) => setSort((prev) => ({ ...prev, [t]: s }))}

@@ -1,0 +1,42 @@
+import { matchKakaoPhoto } from "@/features/nearby";
+import { searchKakaoMap } from "@/features/nearby/server";
+
+// Places come back in the same order on every visit, so found photos are kept.
+const cache = new Map<string, string | null>();
+
+// Returns the Kakao Map photo of a place that has no Google photo, or 404.
+export async function GET(request: Request) {
+  const params = new URL(request.url).searchParams;
+  const name = params.get("name")?.trim() ?? "";
+  const area = params.get("area")?.trim() ?? "";
+  const target = { name, lat: Number(params.get("lat")), lng: Number(params.get("lng")) };
+  if (!name || !Number.isFinite(target.lat) || !Number.isFinite(target.lng)) return new Response(null, { status: 400 });
+
+  const key = `${area}|${name}|${target.lat}|${target.lng}`;
+  if (!cache.has(key)) {
+    try {
+      let photo: string | null = null;
+      for (const query of area ? [`${area} ${name}`, name] : [name]) {
+        photo = matchKakaoPhoto(await searchKakaoMap(query), target);
+        if (photo) break;
+      }
+      cache.set(key, photo);
+    } catch (error) {
+      console.error(error);
+      return new Response(null, { status: 502 });
+    }
+  }
+  const photo = cache.get(key);
+  if (!photo) return new Response(null, { status: 404 });
+
+  // Served from here rather than redirected: browsers fail to load Kakao's CDN
+  // image when it is reached through a redirect from this origin.
+  const image = await fetch(photo);
+  if (!image.ok) return new Response(null, { status: 502 });
+  return new Response(image.body, {
+    headers: {
+      "Content-Type": image.headers.get("Content-Type") ?? "image/jpeg",
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
+}
