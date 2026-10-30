@@ -98,3 +98,26 @@ export async function searchKakaoMap(query: string, deps: FetchDep = {}): Promis
   if (!res.ok) throw new Error(`Kakao map search failed: ${res.status}`);
   return ((await res.json()) as { place?: KakaoPlace[] }).place ?? [];
 }
+
+// Searches are shared by the photo and fuel lookups and kept for the life of
+// the server, since the same cards ask again on every visit.
+const kakaoResults = new Map<string, Promise<KakaoPlace[]>>();
+
+// Tries "<area> <name>" and then the bare name until `pick` finds something.
+export async function findOnKakaoMap<T>(
+  target: { name: string } & LatLng,
+  area: string,
+  pick: (places: KakaoPlace[]) => T | null,
+): Promise<T | null> {
+  for (const query of area ? [`${area} ${target.name}`, target.name] : [target.name]) {
+    let results = kakaoResults.get(query);
+    if (!results) {
+      results = searchKakaoMap(query);
+      kakaoResults.set(query, results);
+      results.catch(() => kakaoResults.delete(query));
+    }
+    const found = pick(await results);
+    if (found !== null) return found;
+  }
+  return null;
+}
