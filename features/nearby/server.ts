@@ -3,6 +3,7 @@
 // NAVER API HUB local search docs, all checked 2026-10-29.
 import type { LatLng } from "@/lib/geo";
 
+import type { KakaoPlace } from "./kakao";
 import type { NaverItem } from "./naver";
 import { NEARBY_RADIUS_KM, type GooglePlace, type PlaceCategory } from "./places";
 
@@ -83,4 +84,17 @@ export async function placePhotoUri(
   const res = await doFetch(`${PLACES_BASE}/${photoName}/media?${params}`);
   if (!res.ok) return null;
   return ((await res.json()) as { photoUri?: string }).photoUri ?? null;
+}
+
+const KAKAO_SEARCH_URL = "https://search.map.kakao.com/mapsearch/map.daum";
+
+// Kakao Map's own place search; see kakao.ts for why it is used.
+export async function searchKakaoMap(query: string, deps: FetchDep = {}): Promise<KakaoPlace[]> {
+  const doFetch = deps.fetch ?? fetch;
+  const params = new URLSearchParams({ q: query, msFlag: "A", sort: "0" });
+  const res = await doFetch(`${KAKAO_SEARCH_URL}?${params}`, {
+    headers: { Referer: "https://map.kakao.com/", "User-Agent": "Mozilla/5.0" },
+  });
+  if (!res.ok) throw new Error(`Kakao map search failed: ${res.status}`);
+  return ((await res.json()) as { place?: KakaoPlace[] }).place ?? [];
 }

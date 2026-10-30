@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUpRightIcon, CoffeeIcon, StarIcon, UtensilsIcon } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +21,7 @@ export function PlaceList({
   category,
   base,
   baseIsLodging,
+  area,
   sort,
   hoveredId,
   onSort,
@@ -31,6 +33,7 @@ export function PlaceList({
   category: PlaceCategory;
   base: NearbyBase;
   baseIsLodging: boolean;
+  area: string | null; // city or county of the search place, for finding map photos
   sort: PlaceSort;
   hoveredId: string | null;
   onSort: (sort: PlaceSort) => void;
@@ -110,7 +113,7 @@ export function PlaceList({
             <ul className="grid gap-3">
               {places.map((p) => (
                 <li key={p.id}>
-                  <PlaceCard place={p} active={p.id === hoveredId} onHover={onHover} />
+                  <PlaceCard place={p} area={area} active={p.id === hoveredId} onHover={onHover} />
                 </li>
               ))}
             </ul>
@@ -121,8 +124,25 @@ export function PlaceList({
   );
 }
 
-function PlaceCard({ place: p, active, onHover }: { place: Place; active: boolean; onHover: (id: string | null) => void }) {
+function PlaceCard({
+  place: p,
+  area,
+  active,
+  onHover,
+}: {
+  place: Place;
+  area: string | null;
+  active: boolean;
+  onHover: (id: string | null) => void;
+}) {
   const Icon = p.category === "cafe" ? CoffeeIcon : UtensilsIcon;
+  // Google gives no place photos in Korea, so most cards use the place's
+  // Kakao Map photo; the icon stays when neither exists.
+  const [photo, setPhoto] = useState<"loading" | "shown" | "none">("loading");
+  const src = p.photoName
+    ? `/api/places/photo?${new URLSearchParams({ name: p.photoName, w: "320" })}`
+    : `/api/nearby/photo?${new URLSearchParams({ name: p.name, lat: String(p.lat), lng: String(p.lng), ...(area && { area }) })}`;
+  const credit = photo !== "shown" ? null : p.photoName ? p.photoCredit : "카카오맵";
   return (
     <a
       href={p.mapsUrl}
@@ -138,18 +158,23 @@ function PlaceCard({ place: p, active, onHover }: { place: Place; active: boolea
       )}
     >
       <div className="relative min-h-28 overflow-hidden bg-muted">
-        {p.photoName ? (
-          // eslint-disable-next-line @next/next/no-img-element -- served through our photo redirect route
-          <img
-            src={`/api/places/photo?${new URLSearchParams({ name: p.photoName, w: "320" })}`}
-            alt=""
-            loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="grid h-full place-items-center text-muted-foreground">
+        {photo !== "shown" && (
+          <div className="absolute inset-0 grid place-items-center text-muted-foreground">
             <Icon className="size-5" />
           </div>
+        )}
+        {photo !== "none" && (
+          // eslint-disable-next-line @next/next/no-img-element -- served through our photo redirect routes
+          <img
+            src={src}
+            alt=""
+            onLoad={() => setPhoto("shown")}
+            onError={() => setPhoto("none")}
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105",
+              photo !== "shown" && "invisible",
+            )}
+          />
         )}
       </div>
       <div className="grid content-start gap-1.5 p-3 sm:px-4">
@@ -178,7 +203,7 @@ function PlaceCard({ place: p, active, onHover }: { place: Place; active: boolea
           {p.openNow === false && <span>영업 종료</span>}
           <span>{p.source === "naver" ? "네이버" : "Google"}</span>
         </div>
-        {p.photoCredit && <span className="text-[11px] text-muted-foreground">사진 · {p.photoCredit}</span>}
+        {credit && <span className="text-[11px] text-muted-foreground">사진 · {credit}</span>}
       </div>
     </a>
   );
