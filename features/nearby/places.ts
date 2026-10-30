@@ -2,7 +2,8 @@
 // Search and, for Korea, the NAVER local search as a supplement.
 import { haversineKm, roundKm, type LatLng } from "@/lib/geo";
 
-export type PlaceCategory = "restaurant" | "cafe";
+// "lodging" lists nearby stays without prices, for when price comparison is unavailable.
+export type PlaceCategory = "restaurant" | "cafe" | "lodging";
 
 export type Place = {
   id: string;

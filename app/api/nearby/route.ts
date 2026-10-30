@@ -6,6 +6,7 @@ import { googlePlacesApiKey, naverSearchKeys } from "@/lib/env";
 const NAVER_KEYWORDS: Record<PlaceCategory, string[]> = {
   restaurant: ["맛집", "한식"],
   cafe: ["카페"],
+  lodging: ["숙소", "모텔"],
 };
 
 export async function GET(request: Request) {
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
   const category = params.get("category");
   const name = params.get("name")?.trim() ?? "";
   const base = { lat: Number(params.get("lat")), lng: Number(params.get("lng")) };
-  if ((category !== "restaurant" && category !== "cafe") || !name || !Number.isFinite(base.lat) || !Number.isFinite(base.lng)) {
+  if ((category !== "restaurant" && category !== "cafe" && category !== "lodging") || !name || !Number.isFinite(base.lat) || !Number.isFinite(base.lng)) {
     return Response.json({ error: "bad-request" }, { status: 400 });
   }
 
