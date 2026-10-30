@@ -10,13 +10,14 @@ import {
   UtensilsIcon,
   WashingMachineIcon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { directionsUrl } from "@/lib/directions";
 import { cn } from "@/lib/utils";
 
+import type { Fuel, FuelInfo } from "./kakao";
 import { sortPlaces, type Place, type PlaceCategory, type PlaceSort } from "./places";
 import type { NearbyBase, PlacesState } from "./use-places";
 
@@ -248,6 +249,7 @@ function PlaceCard({
             {p.openNow === false && <span>영업 종료</span>}
             <span>{p.source === "naver" ? "네이버" : "Google"}</span>
           </div>
+          {p.category === "gas_station" && <FuelLine place={p} area={area} />}
           {credit && <span className="text-[11px] text-muted-foreground">사진 · {credit}</span>}
         </div>
       </a>
@@ -280,6 +282,48 @@ function PlaceSkeleton() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+const FUEL_LABEL: Record<Fuel, string> = { gasoline: "휘발유", premium: "고급휘발유", diesel: "경유", lpg: "LPG" };
+const FUEL_ORDER: Fuel[] = ["gasoline", "diesel", "lpg", "premium"];
+
+// Which fuels a gas station sells, with prices, from its Kakao Map entry.
+function FuelLine({ place: p, area }: { place: Place; area: string | null }) {
+  const query = new URLSearchParams({ name: p.name, lat: String(p.lat), lng: String(p.lng), ...(area && { area }) }).toString();
+  const [result, setResult] = useState<{ query: string; fuel: FuelInfo | null } | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/nearby/fuel?${query}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : { fuel: null }))
+      .then((json: { fuel: FuelInfo | null }) => setResult({ query, fuel: json.fuel }))
+      .catch((error: Error) => error.name !== "AbortError" && setResult({ query, fuel: null }));
+    return () => controller.abort();
+  }, [query]);
+
+  if (result?.query !== query) return <span className="animate-pulse text-sm text-muted-foreground">연료 확인 중…</span>;
+  const fuel = result.fuel;
+  if (!fuel) return <span className="text-sm text-muted-foreground">판매 연료 정보 없음</span>;
+
+  const chip = "rounded-full bg-muted px-2 py-0.5 text-xs";
+  return (
+    <div className="grid gap-1">
+      <ul className="flex flex-wrap gap-1.5" aria-label="판매 연료">
+        {FUEL_ORDER.filter((f) => fuel.prices[f] !== undefined).map((f) => (
+          <li key={f} className={cn(chip, "text-foreground")}>
+            {FUEL_LABEL[f]} <b className="font-semibold tabular-nums">{fuel.prices[f]!.toLocaleString("ko-KR")}원</b>
+          </li>
+        ))}
+        {fuel.self && <li className={cn(chip, "text-muted-foreground")}>셀프</li>}
+        {fuel.open24 && <li className={cn(chip, "text-muted-foreground")}>24시</li>}
+      </ul>
+      <span className="text-[11px] text-muted-foreground">
+        연료 가격 · 카카오맵
+        {fuel.updatedAt &&
+          ` · ${Number(fuel.updatedAt.slice(5, 7))}.${Number(fuel.updatedAt.slice(8, 10))} ${fuel.updatedAt.slice(11, 16)} 기준`}
+      </span>
     </div>
   );
 }
