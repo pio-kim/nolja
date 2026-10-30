@@ -11,5 +11,6 @@ export function bookingSearchLinks(query: string): BookingLink[] {
       url: `https://nol.yanolja.com/discovery/list/search/PRODUCT_CATEGORY_KOREA_ACCOMMODATION?q=${q}`,
     },
     { site: "여기어때", url: `https://www.yeogi.com/domestic-accommodations?keyword=${q}` },
+    { site: "Google 호텔", url: `https://www.google.com/travel/search?q=${encodeURIComponent(`${query} 숙소`)}` },
   ];
 }

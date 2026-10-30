@@ -50,21 +50,25 @@ export function LodgingList({
 
   if (state.status === "error") {
     return (
-      <div className="rounded-2xl border bg-card p-8 text-center" role="alert">
-        <h3 className="font-heading text-xl">숙소를 불러오지 못했어요</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {state.reason === "missing-key"
-            ? "숙소 가격 조회 키(SERPAPI_API_KEY)가 설정되지 않았어요."
-            : "잠시 후 다시 시도해 주세요. 예약 사이트에서 직접 찾아볼 수도 있어요."}
-        </p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {state.reason === "failed" && (
-            <Button size="lg" className="rounded-full px-5" onClick={onRetry}>
-              다시 시도
-            </Button>
-          )}
+      <div className="grid justify-items-center gap-5 rounded-2xl border bg-card px-6 py-10 text-center" role="alert">
+        <span className="grid size-12 place-items-center rounded-full bg-muted">
+          <BedDoubleIcon className="size-5" />
+        </span>
+        <div className="grid gap-2">
+          <h3 className="font-heading text-xl">지금은 숙소 가격 비교를 불러올 수 없어요</h3>
+          <p className="max-w-md text-sm text-muted-foreground">
+            <b className="font-semibold text-foreground">{query}</b> 근처 숙소는 아래 예약 사이트에서 바로 볼 수 있어요.
+            날짜와 인원은 사이트에서 다시 골라 주세요.
+          </p>
+        </div>
+        <div className="grid w-full max-w-xl gap-2 sm:grid-cols-3">
           <BookingSiteButtons query={query} />
         </div>
+        {state.reason === "failed" && (
+          <Button variant="ghost" size="sm" className="rounded-full px-4 text-muted-foreground" onClick={onRetry}>
+            가격 비교 다시 불러오기
+          </Button>
+        )}
       </div>
     );
   }
