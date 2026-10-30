@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowUpRightIcon, CoffeeIcon, StarIcon, UtensilsIcon } from "lucide-react";
-import { useState } from "react";
+import { ArrowUpRightIcon, BedDoubleIcon, CoffeeIcon, StarIcon, UtensilsIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
 import { sortPlaces, type Place, type PlaceCategory, type PlaceSort } from "./places";
 import type { NearbyBase, PlacesState } from "./use-places";
 
-const CATEGORY_LABEL: Record<PlaceCategory, string> = { restaurant: "음식점", cafe: "카페" };
+const CATEGORY_LABEL: Record<PlaceCategory, string> = { restaurant: "음식점", cafe: "카페", lodging: "숙소" };
+const CATEGORY_ICON = { restaurant: UtensilsIcon, cafe: CoffeeIcon, lodging: BedDoubleIcon };
 
 export function visiblePlaces(state: PlacesState, sort: PlaceSort): Place[] {
   return state.status === "ready" ? sortPlaces(state.places, sort) : [];
@@ -22,6 +23,7 @@ export function PlaceList({
   base,
   baseIsLodging,
   area,
+  notice,
   sort,
   hoveredId,
   onSort,
@@ -34,6 +36,7 @@ export function PlaceList({
   base: NearbyBase;
   baseIsLodging: boolean;
   area: string | null; // city or county of the search place, for finding map photos
+  notice?: ReactNode; // replaces the base-point banner
   sort: PlaceSort;
   hoveredId: string | null;
   onSort: (sort: PlaceSort) => void;
@@ -45,22 +48,24 @@ export function PlaceList({
 
   return (
     <div className="flex flex-col gap-4">
-      <div
-        className={cn(
-          "flex flex-wrap items-center justify-between gap-2 rounded-2xl px-4 py-3 text-sm",
-          baseIsLodging ? "border border-foreground bg-card" : "bg-muted",
-        )}
-      >
-        <span>
-          <b>{base.name}</b> 기준 ·{" "}
-          {baseIsLodging ? `숙소 근처 ${CATEGORY_LABEL[category]}` : "숙소를 고르면 그 숙소 근처로 바뀌어요"}
-        </span>
-        {baseIsLodging && (
-          <button type="button" onClick={onResetBase} className="font-medium underline underline-offset-4">
-            검색한 장소 기준으로 돌아가기
-          </button>
-        )}
-      </div>
+      {notice ?? (
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-2 rounded-2xl px-4 py-3 text-sm",
+            baseIsLodging ? "border border-foreground bg-card" : "bg-muted",
+          )}
+        >
+          <span>
+            <b>{base.name}</b> 기준 ·{" "}
+            {baseIsLodging ? `숙소 근처 ${CATEGORY_LABEL[category]}` : "숙소를 고르면 그 숙소 근처로 바뀌어요"}
+          </span>
+          {baseIsLodging && (
+            <button type="button" onClick={onResetBase} className="font-medium underline underline-offset-4">
+              검색한 장소 기준으로 돌아가기
+            </button>
+          )}
+        </div>
+      )}
 
       {state.status === "loading" && <PlaceSkeleton />}
 
@@ -135,7 +140,7 @@ function PlaceCard({
   active: boolean;
   onHover: (id: string | null) => void;
 }) {
-  const Icon = p.category === "cafe" ? CoffeeIcon : UtensilsIcon;
+  const Icon = CATEGORY_ICON[p.category];
   // Google gives no place photos in Korea, so most cards use the place's
   // Kakao Map photo; the icon stays when neither exists.
   const [photo, setPhoto] = useState<"loading" | "shown" | "none">("loading");
