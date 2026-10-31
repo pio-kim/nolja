@@ -30,6 +30,7 @@ export async function searchGoogleNearby(
   base: LatLng,
   category: PlaceCategory,
   deps: { apiKey: string } & FetchDep,
+  radiusKm: number = NEARBY_RADIUS_KM,
 ): Promise<GooglePlace[]> {
   const doFetch = deps.fetch ?? fetch;
   const res = await doFetch(`${PLACES_BASE}/places:searchNearby`, {
@@ -47,7 +48,7 @@ export async function searchGoogleNearby(
       languageCode: "ko",
       regionCode: "kr",
       locationRestriction: {
-        circle: { center: { latitude: base.lat, longitude: base.lng }, radius: NEARBY_RADIUS_KM * 1000 },
+        circle: { center: { latitude: base.lat, longitude: base.lng }, radius: radiusKm * 1000 },
       },
     }),
   });

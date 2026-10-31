@@ -1,4 +1,11 @@
-import { fromGooglePlaces, fromNaverItems, mergePlaces, type PlaceCategory } from "@/features/nearby";
+import {
+  fromGooglePlaces,
+  fromNaverItems,
+  MAX_NEARBY_RADIUS_KM,
+  mergePlaces,
+  NEARBY_RADIUS_KM,
+  type PlaceCategory,
+} from "@/features/nearby";
 import { searchGoogleNearby, searchNaverLocal } from "@/features/nearby/server";
 import { googlePlacesApiKey, naverSearchKeys } from "@/lib/env";
 
@@ -22,12 +29,24 @@ export async function GET(request: Request) {
   const category = params.get("category");
   const name = params.get("name")?.trim() ?? "";
   const base = { lat: Number(params.get("lat")), lng: Number(params.get("lng")) };
-  if (!isCategory(category) || !name || !Number.isFinite(base.lat) || !Number.isFinite(base.lng)) {
+  const radiusKm = Number(params.get("radius") ?? NEARBY_RADIUS_KM);
+  if (
+    !isCategory(category) ||
+    !name ||
+    !Number.isFinite(base.lat) ||
+    !Number.isFinite(base.lng) ||
+    !(radiusKm > 0 && radiusKm <= MAX_NEARBY_RADIUS_KM)
+  ) {
     return Response.json({ error: "bad-request" }, { status: 400 });
   }
 
   try {
-    const google = fromGooglePlaces(await searchGoogleNearby(base, category, { apiKey }), base, category);
+    const google = fromGooglePlaces(
+      await searchGoogleNearby(base, category, { apiKey }, radiusKm),
+      base,
+      category,
+      radiusKm,
+    );
 
     let naver: ReturnType<typeof fromNaverItems> = [];
     const naverKeys = naverSearchKeys();
@@ -37,7 +56,7 @@ export async function GET(request: Request) {
         NAVER_KEYWORDS[category].map((keyword) => searchNaverLocal(`${name} ${keyword}`, naverKeys)),
       );
       for (const r of results) {
-        if (r.status === "fulfilled") naver = naver.concat(fromNaverItems(r.value, base, category));
+        if (r.status === "fulfilled") naver = naver.concat(fromNaverItems(r.value, base, category, radiusKm));
         else console.error(r.reason);
       }
     }

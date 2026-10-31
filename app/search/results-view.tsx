@@ -14,11 +14,18 @@ import {
   useLodgings,
   useSellerPrefetch,
   visibleLodgings,
-  WIDE_RADIUS_KM,
 } from "@/features/lodging/ui";
 import { OriginMap, type MapMarker } from "@/features/map/origin-map";
-import { areaOf, type PlaceCategory, type PlaceSort } from "@/features/nearby";
-import { CATEGORY_LABEL, PlaceList, usePlaces, visiblePlaces, type NearbyBase } from "@/features/nearby/ui";
+import { areaOf, type Fuel, type PlaceCategory, type PlaceSort } from "@/features/nearby";
+import {
+  CATEGORY_LABEL,
+  PlaceList,
+  useFuels,
+  usePlaces,
+  visiblePlaces,
+  type FuelFilter,
+  type NearbyBase,
+} from "@/features/nearby/ui";
 import type { SearchPlace } from "@/features/search";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +42,9 @@ const TAB_DOT: Record<Tab, string> = {
   gas_station: "bg-marker-gas",
   laundry: "bg-marker-laundry",
 };
+
+// Radii every tab can be narrowed to; both the lodging and nearby APIs go up to 10km.
+const RADIUS_OPTIONS_KM = [1, 3, 5, 10];
 
 const notVisited: Record<NearbyTab, boolean> = {
   restaurant: false,
@@ -54,6 +64,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
   const { state, retry } = useLodgings(stay, place);
   const [tab, setTab] = useState<Tab>("lodging");
   const [visited, setVisited] = useState(notVisited);
+  // One radius for every tab, so lodgings and nearby places cover the same area.
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Lodging | null>(null);
@@ -66,6 +77,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     gas_station: "distance",
     laundry: "distance",
   });
+  const [wantedFuels, setWantedFuels] = useState<Fuel[]>([]);
   const [mapOpen, setMapOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   // The place picked on the map: it stays marked on the map and in the list
@@ -81,6 +93,8 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
   }, [picked, mapOpen]);
 
   const lodgings = visibleLodgings(state, radiusKm);
+  const widerKm =
+    RADIUS_OPTIONS_KM.find((km) => km > radiusKm && visibleLodgings(state, km).length > lodgings.length) ?? null;
   const sellers = useSellerPrefetch(
     lodgings.map((l) => l.id),
     stay,
@@ -88,15 +102,24 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
 
   const base: NearbyBase = baseLodging ?? { name: place.name, lat: place.lat, lng: place.lng };
   const nearby = {
-    restaurant: usePlaces(base, "restaurant", visited.restaurant),
-    cafe: usePlaces(base, "cafe", visited.cafe),
-    convenience_store: usePlaces(base, "convenience_store", visited.convenience_store),
-    gas_station: usePlaces(base, "gas_station", visited.gas_station),
-    laundry: usePlaces(base, "laundry", visited.laundry),
+    restaurant: usePlaces(base, "restaurant", visited.restaurant, radiusKm),
+    cafe: usePlaces(base, "cafe", visited.cafe, radiusKm),
+    convenience_store: usePlaces(base, "convenience_store", visited.convenience_store, radiusKm),
+    gas_station: usePlaces(base, "gas_station", visited.gas_station, radiusKm),
+    laundry: usePlaces(base, "laundry", visited.laundry, radiusKm),
   };
 
+  const area = areaOf(place.address);
+  const stations = nearby.gas_station.state;
+  const fuel: FuelFilter = {
+    info: useFuels(stations.status === "ready" ? stations.places : [], area),
+    wanted: wantedFuels,
+    onWanted: setWantedFuels,
+  };
+  const fuelOf = (t: NearbyTab) => (t === "gas_station" ? fuel : undefined);
+
   const searchBase: NearbyBase = { name: place.name, lat: place.lat, lng: place.lng };
-  const unpriced = usePlaces(searchBase, "lodging", state.status === "error");
+  const unpriced = usePlaces(searchBase, "lodging", state.status === "error", radiusKm);
   // Unpriced stays stand in unless place search failed too.
   const showUnpriced = state.status === "error" && unpriced.state.status !== "error";
 
@@ -130,7 +153,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
       : tab === "lodging"
         ? lodgings.map((l) => ({ id: l.id, lat: l.lat, lng: l.lng, label: manwon(l.totalPrice), title: l.name, kind: "lodging" }))
         : [
-            ...visiblePlaces(nearby[tab].state, sort[tab]).map((p) => placeMarker(p, tab)),
+            ...visiblePlaces(nearby[tab].state, sort[tab], fuelOf(tab)).map((p) => placeMarker(p, tab)),
             ...(baseLodging
               ? [{ id: baseLodging.id, lat: baseLodging.lat, lng: baseLodging.lng, label: "숙소", title: baseLodging.name, kind: "lodging" as const }]
               : []),
@@ -140,7 +163,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     if (t === "lodging" && showUnpriced) return unpriced.state.status === "ready" ? unpriced.state.places.length : null;
     if (t === "lodging") return state.status === "ready" ? lodgings.length : null;
     const s = nearby[t].state;
-    return s.status === "ready" ? s.places.length : null;
+    return s.status === "ready" ? visiblePlaces(s, sort[t], fuelOf(t)).length : null;
   };
 
   return (
@@ -162,6 +185,24 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
           ))}
         </TabsList>
 
+        <div role="group" aria-label="검색 반경" className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">반경</span>
+          {RADIUS_OPTIONS_KM.map((km) => (
+            <button
+              key={km}
+              type="button"
+              aria-pressed={radiusKm === km}
+              onClick={() => setRadiusKm(km)}
+              className={cn(
+                "rounded-full border px-3 py-1 transition-colors duration-200",
+                radiusKm === km ? "border-foreground bg-foreground text-background" : "bg-card hover:border-foreground",
+              )}
+            >
+              {km}km
+            </button>
+          ))}
+        </div>
+
         <TabsContent value="lodging">
           {showUnpriced ? (
             <PlaceList
@@ -169,9 +210,10 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               category="lodging"
               base={searchBase}
               baseIsLodging={false}
-              area={areaOf(place.address)}
+              area={area}
               notice={<UnpricedNotice query={place.name} onRetry={retry} />}
               sort={sort.lodging}
+              radiusKm={radiusKm}
               hoveredId={hoveredId}
               selectedId={picked?.id ?? null}
               onSort={(s) => setSort((prev) => ({ ...prev, lodging: s }))}
@@ -183,6 +225,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
             <LodgingList
               state={state}
               radiusKm={radiusKm}
+              widerKm={widerKm}
               nights={nights}
               query={place.name}
               hoveredId={hoveredId}
@@ -191,7 +234,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               sellersOf={sellers.get}
               onHover={setHoveredId}
               onSelect={select}
-              onWiden={() => setRadiusKm(WIDE_RADIUS_KM)}
+              onWiden={() => widerKm !== null && setRadiusKm(widerKm)}
               onRetry={retry}
             />
           )}
@@ -203,8 +246,10 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               category={t}
               base={base}
               baseIsLodging={baseLodging !== null}
-              area={areaOf(place.address)}
+              area={area}
               sort={sort[t]}
+              radiusKm={radiusKm}
+              fuel={fuelOf(t)}
               hoveredId={hoveredId}
               selectedId={picked?.id ?? null}
               onSort={(s) => setSort((prev) => ({ ...prev, [t]: s }))}

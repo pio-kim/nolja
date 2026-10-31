@@ -2,8 +2,8 @@ import { toLodgings } from "@/features/lodging";
 import { diskCache, fetchLodgingProperties, readLodgingStay } from "@/features/lodging/server";
 import { serpApiKey } from "@/lib/env";
 
-// Results within 5km are returned so the screen can widen from 3km without refetching.
-const MAX_RADIUS_KM = 5;
+// Results within 10km are returned so the screen can change its radius without refetching.
+const MAX_RADIUS_KM = 10;
 const cache = diskCache();
 
 export async function GET(request: Request) {

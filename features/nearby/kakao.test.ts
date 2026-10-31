@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { areaOf, fuelInfo, kakaoThumbnail, matchKakaoPhoto, matchKakaoPlace } from "@/features/nearby";
+import { areaOf, fuelInfo, kakaoThumbnail, matchKakaoPhoto, matchKakaoPlace, sellsAny } from "@/features/nearby";
 
 const target = { name: "엄지네포장마차 본점", lat: 37.76632, lng: 128.90701 };
 const img = "http://t1.kakaocdn.net/local/kakaomapPhoto/review/abc?original";
@@ -60,5 +60,15 @@ describe("주유소 연료", () => {
     const station = { name: "교동주유소", lat: 37.76632, lon: 128.90701, oil1: "1810" };
     const carWash = { name: "교동주유소 세차장", lat: 37.76633, lon: 128.90702 };
     expect(matchKakaoPlace([carWash, station], target, (p) => fuelInfo(p) !== null)).toBe(station);
+  });
+
+  test("고른 연료 중 하나라도 팔면 남기고, 아무것도 안 고르면 모두 남긴다", () => {
+    const regular = fuelInfo({ oil1: "1810", oil3: "1799" });
+    const lpgOnly = fuelInfo({ oil4: "1181" });
+    expect(sellsAny(regular, ["lpg"])).toBe(false);
+    expect(sellsAny(lpgOnly, ["lpg"])).toBe(true);
+    expect(sellsAny(regular, ["diesel", "lpg"])).toBe(true);
+    expect(sellsAny(null, ["gasoline"])).toBe(false);
+    expect(sellsAny(null, [])).toBe(true);
   });
 });
