@@ -7,6 +7,9 @@ import type { SerpSellerPrice } from "./sellers";
 
 const SERPAPI_URL = "https://serpapi.com/search.json";
 const MAX_PAGES = 2;
+// Google Hotels searches take several seconds; past this the browser's
+// connection is better freed, and a cached response is served if there is one.
+const TIMEOUT_MS = 20_000;
 
 export type LodgingStay = {
   query: string;
@@ -42,7 +45,7 @@ async function getJson<T>(params: URLSearchParams, deps: SerpDeps): Promise<T> {
   if (cached && isFresh(cached)) return cached.body as T;
 
   try {
-    const res = await doFetch(`${SERPAPI_URL}?${params}`);
+    const res = await doFetch(`${SERPAPI_URL}?${params}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!res.ok) throw new Error(`SerpApi failed: ${res.status}`);
     const body = (await res.json()) as T;
     await deps.cache?.put(cacheKey, body);
