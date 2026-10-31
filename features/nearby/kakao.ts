@@ -94,3 +94,9 @@ export function areaOf(address: string): string | null {
   const parts = address.split(/\s+/);
   return parts.find((p, i) => i > 0 && /(시|군)$/.test(p)) ?? parts.find((p) => /(시|군|구)$/.test(p)) ?? null;
 }
+
+// Whether a station sells at least one of `wanted`; every station does when
+// nothing is wanted.
+export function sellsAny(fuel: FuelInfo | null, wanted: Fuel[]): boolean {
+  return wanted.length === 0 || wanted.some((f) => fuel?.prices[f] !== undefined);
+}

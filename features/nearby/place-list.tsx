@@ -11,14 +11,14 @@ import {
   UtensilsIcon,
   WashingMachineIcon,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { directionsUrl } from "@/lib/directions";
 import { cn } from "@/lib/utils";
 
-import type { Fuel, FuelInfo } from "./kakao";
+import { sellsAny, type Fuel, type FuelInfo } from "./kakao";
 import { sortPlaces, type Place, type PlaceCategory, type PlaceSort } from "./places";
 import type { NearbyBase, PlacesState } from "./use-places";
 
@@ -39,8 +39,18 @@ const CATEGORY_ICON = {
   convenience_store: StoreIcon,
 };
 
-export function visiblePlaces(state: PlacesState, sort: PlaceSort): Place[] {
-  return state.status === "ready" ? sortPlaces(state.places, sort) : [];
+// Gas stations narrowed to the fuels the user checked. `info` is by place id;
+// a station whose fuels are still loading stays listed until they arrive.
+export type FuelFilter = {
+  info: Record<string, FuelInfo | null>;
+  wanted: Fuel[];
+  onWanted: (wanted: Fuel[]) => void;
+};
+
+export function visiblePlaces(state: PlacesState, sort: PlaceSort, fuel?: FuelFilter): Place[] {
+  if (state.status !== "ready") return [];
+  const places = fuel ? state.places.filter((p) => !(p.id in fuel.info) || sellsAny(fuel.info[p.id], fuel.wanted)) : state.places;
+  return sortPlaces(places, sort);
 }
 
 export function PlaceList({
@@ -51,6 +61,7 @@ export function PlaceList({
   area,
   notice,
   sort,
+  fuel,
   hoveredId,
   selectedId,
   onSort,
@@ -65,6 +76,7 @@ export function PlaceList({
   area: string | null; // city or county of the search place, for finding map photos
   notice?: ReactNode; // replaces the base-point banner
   sort: PlaceSort;
+  fuel?: FuelFilter; // gas stations only
   hoveredId: string | null;
   selectedId: string | null; // picked on the map
   onSort: (sort: PlaceSort) => void;
@@ -72,7 +84,8 @@ export function PlaceList({
   onResetBase: () => void;
   onRetry: () => void;
 }) {
-  const places = visiblePlaces(state, sort);
+  const places = visiblePlaces(state, sort, fuel);
+  const filtering = fuel !== undefined && fuel.wanted.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -133,7 +146,14 @@ export function PlaceList({
             </div>
           </div>
 
-          {places.length === 0 ? (
+          {fuel && <FuelFilterBar filter={fuel} />}
+
+          {places.length === 0 && filtering ? (
+            <div className="grid justify-items-center gap-2 rounded-2xl border bg-card px-6 py-12 text-center">
+              <h3 className="font-heading text-xl">선택한 연료를 파는 주유소가 없어요</h3>
+              <p className="text-sm text-muted-foreground">연료 선택을 바꾸거나 해제해 보세요.</p>
+            </div>
+          ) : places.length === 0 ? (
             <div className="grid justify-items-center gap-2 rounded-2xl border bg-card px-6 py-12 text-center">
               <h3 className="font-heading text-xl">반경 3km 안에 {CATEGORY_LABEL[category]}이(가) 없어요</h3>
               <p className="text-sm text-muted-foreground">
@@ -151,6 +171,7 @@ export function PlaceList({
                     area={area}
                     active={p.id === hoveredId}
                     selected={p.id === selectedId}
+                    fuel={fuel?.info[p.id]}
                     onHover={onHover}
                   />
                 </li>
@@ -168,12 +189,14 @@ function PlaceCard({
   area,
   active,
   selected,
+  fuel,
   onHover,
 }: {
   place: Place;
   area: string | null;
   active: boolean;
   selected: boolean;
+  fuel: FuelInfo | null | undefined; // undefined while loading
   onHover: (id: string | null) => void;
 }) {
   const Icon = CATEGORY_ICON[p.category];
@@ -252,7 +275,7 @@ function PlaceCard({
             {p.openNow === false && <span>영업 종료</span>}
             <span>{p.source === "naver" ? "네이버" : "Google"}</span>
           </div>
-          {p.category === "gas_station" && <FuelLine place={p} area={area} />}
+          {p.category === "gas_station" && <FuelLine fuel={fuel} />}
           {credit && <span className="text-[11px] text-muted-foreground">사진 · {credit}</span>}
         </div>
       </a>
@@ -291,23 +314,41 @@ function PlaceSkeleton() {
 
 const FUEL_LABEL: Record<Fuel, string> = { gasoline: "휘발유", premium: "고급휘발유", diesel: "경유", lpg: "LPG" };
 const FUEL_ORDER: Fuel[] = ["gasoline", "diesel", "lpg", "premium"];
+// Kakao has no kerosene or urea (요소수) data, so only these can be filtered.
+const FILTER_FUELS: Fuel[] = ["gasoline", "diesel", "lpg"];
+
+// Shows stations selling any of the checked fuels; none checked shows all.
+function FuelFilterBar({ filter }: { filter: FuelFilter }) {
+  const toggle = (f: Fuel) =>
+    filter.onWanted(filter.wanted.includes(f) ? filter.wanted.filter((w) => w !== f) : [...filter.wanted, f]);
+  return (
+    <fieldset className="flex flex-wrap items-center gap-2 text-sm">
+      <legend className="sr-only">판매 연료로 거르기</legend>
+      <span className="text-muted-foreground">연료</span>
+      {FILTER_FUELS.map((f) => (
+        <label
+          key={f}
+          className={cn(
+            "flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 transition-colors duration-200 has-focus-visible:ring-2 has-focus-visible:ring-ring",
+            filter.wanted.includes(f) ? "border-foreground bg-foreground text-background" : "bg-card hover:border-foreground",
+          )}
+        >
+          <input
+            type="checkbox"
+            checked={filter.wanted.includes(f)}
+            onChange={() => toggle(f)}
+            className="size-3.5 accent-current"
+          />
+          {FUEL_LABEL[f]}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
 
 // Which fuels a gas station sells, with prices, from its Kakao Map entry.
-function FuelLine({ place: p, area }: { place: Place; area: string | null }) {
-  const query = new URLSearchParams({ name: p.name, lat: String(p.lat), lng: String(p.lng), ...(area && { area }) }).toString();
-  const [result, setResult] = useState<{ query: string; fuel: FuelInfo | null } | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(`/api/nearby/fuel?${query}`, { signal: controller.signal })
-      .then((res) => (res.ok ? res.json() : { fuel: null }))
-      .then((json: { fuel: FuelInfo | null }) => setResult({ query, fuel: json.fuel }))
-      .catch((error: Error) => error.name !== "AbortError" && setResult({ query, fuel: null }));
-    return () => controller.abort();
-  }, [query]);
-
-  if (result?.query !== query) return <span className="animate-pulse text-sm text-muted-foreground">연료 확인 중…</span>;
-  const fuel = result.fuel;
+function FuelLine({ fuel }: { fuel: FuelInfo | null | undefined }) {
+  if (fuel === undefined) return <span className="animate-pulse text-sm text-muted-foreground">연료 확인 중…</span>;
   if (!fuel) return <span className="text-sm text-muted-foreground">판매 연료 정보 없음</span>;
 
   const chip = "rounded-full bg-muted px-2 py-0.5 text-xs";

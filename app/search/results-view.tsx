@@ -17,8 +17,16 @@ import {
   WIDE_RADIUS_KM,
 } from "@/features/lodging/ui";
 import { OriginMap, type MapMarker } from "@/features/map/origin-map";
-import { areaOf, type PlaceCategory, type PlaceSort } from "@/features/nearby";
-import { CATEGORY_LABEL, PlaceList, usePlaces, visiblePlaces, type NearbyBase } from "@/features/nearby/ui";
+import { areaOf, type Fuel, type PlaceCategory, type PlaceSort } from "@/features/nearby";
+import {
+  CATEGORY_LABEL,
+  PlaceList,
+  useFuels,
+  usePlaces,
+  visiblePlaces,
+  type FuelFilter,
+  type NearbyBase,
+} from "@/features/nearby/ui";
 import type { SearchPlace } from "@/features/search";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +74,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     gas_station: "distance",
     laundry: "distance",
   });
+  const [wantedFuels, setWantedFuels] = useState<Fuel[]>([]);
   const [mapOpen, setMapOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   // The place picked on the map: it stays marked on the map and in the list
@@ -94,6 +103,15 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     gas_station: usePlaces(base, "gas_station", visited.gas_station),
     laundry: usePlaces(base, "laundry", visited.laundry),
   };
+
+  const area = areaOf(place.address);
+  const stations = nearby.gas_station.state;
+  const fuel: FuelFilter = {
+    info: useFuels(stations.status === "ready" ? stations.places : [], area),
+    wanted: wantedFuels,
+    onWanted: setWantedFuels,
+  };
+  const fuelOf = (t: NearbyTab) => (t === "gas_station" ? fuel : undefined);
 
   const searchBase: NearbyBase = { name: place.name, lat: place.lat, lng: place.lng };
   const unpriced = usePlaces(searchBase, "lodging", state.status === "error");
@@ -130,7 +148,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
       : tab === "lodging"
         ? lodgings.map((l) => ({ id: l.id, lat: l.lat, lng: l.lng, label: manwon(l.totalPrice), title: l.name, kind: "lodging" }))
         : [
-            ...visiblePlaces(nearby[tab].state, sort[tab]).map((p) => placeMarker(p, tab)),
+            ...visiblePlaces(nearby[tab].state, sort[tab], fuelOf(tab)).map((p) => placeMarker(p, tab)),
             ...(baseLodging
               ? [{ id: baseLodging.id, lat: baseLodging.lat, lng: baseLodging.lng, label: "숙소", title: baseLodging.name, kind: "lodging" as const }]
               : []),
@@ -140,7 +158,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     if (t === "lodging" && showUnpriced) return unpriced.state.status === "ready" ? unpriced.state.places.length : null;
     if (t === "lodging") return state.status === "ready" ? lodgings.length : null;
     const s = nearby[t].state;
-    return s.status === "ready" ? s.places.length : null;
+    return s.status === "ready" ? visiblePlaces(s, sort[t], fuelOf(t)).length : null;
   };
 
   return (
@@ -169,7 +187,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               category="lodging"
               base={searchBase}
               baseIsLodging={false}
-              area={areaOf(place.address)}
+              area={area}
               notice={<UnpricedNotice query={place.name} onRetry={retry} />}
               sort={sort.lodging}
               hoveredId={hoveredId}
@@ -203,8 +221,9 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               category={t}
               base={base}
               baseIsLodging={baseLodging !== null}
-              area={areaOf(place.address)}
+              area={area}
               sort={sort[t]}
+              fuel={fuelOf(t)}
               hoveredId={hoveredId}
               selectedId={picked?.id ?? null}
               onSort={(s) => setSort((prev) => ({ ...prev, [t]: s }))}
