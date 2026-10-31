@@ -17,7 +17,7 @@ import {
   WIDE_RADIUS_KM,
 } from "@/features/lodging/ui";
 import { OriginMap, type MapMarker } from "@/features/map/origin-map";
-import { areaOf, type Fuel, type PlaceCategory, type PlaceSort } from "@/features/nearby";
+import { areaOf, NEARBY_RADIUS_KM, type Fuel, type PlaceCategory, type PlaceSort } from "@/features/nearby";
 import {
   CATEGORY_LABEL,
   PlaceList,
@@ -75,6 +75,8 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     laundry: "distance",
   });
   const [wantedFuels, setWantedFuels] = useState<Fuel[]>([]);
+  // One radius for every nearby tab, so tabs compare the same area.
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(NEARBY_RADIUS_KM);
   const [mapOpen, setMapOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   // The place picked on the map: it stays marked on the map and in the list
@@ -97,11 +99,11 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
 
   const base: NearbyBase = baseLodging ?? { name: place.name, lat: place.lat, lng: place.lng };
   const nearby = {
-    restaurant: usePlaces(base, "restaurant", visited.restaurant),
-    cafe: usePlaces(base, "cafe", visited.cafe),
-    convenience_store: usePlaces(base, "convenience_store", visited.convenience_store),
-    gas_station: usePlaces(base, "gas_station", visited.gas_station),
-    laundry: usePlaces(base, "laundry", visited.laundry),
+    restaurant: usePlaces(base, "restaurant", visited.restaurant, nearbyRadiusKm),
+    cafe: usePlaces(base, "cafe", visited.cafe, nearbyRadiusKm),
+    convenience_store: usePlaces(base, "convenience_store", visited.convenience_store, nearbyRadiusKm),
+    gas_station: usePlaces(base, "gas_station", visited.gas_station, nearbyRadiusKm),
+    laundry: usePlaces(base, "laundry", visited.laundry, nearbyRadiusKm),
   };
 
   const area = areaOf(place.address);
@@ -223,10 +225,12 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               baseIsLodging={baseLodging !== null}
               area={area}
               sort={sort[t]}
+              radiusKm={nearbyRadiusKm}
               fuel={fuelOf(t)}
               hoveredId={hoveredId}
               selectedId={picked?.id ?? null}
               onSort={(s) => setSort((prev) => ({ ...prev, [t]: s }))}
+              onRadius={setNearbyRadiusKm}
               onHover={setHoveredId}
               onResetBase={() => setBaseLodging(null)}
               onRetry={nearby[t].retry}

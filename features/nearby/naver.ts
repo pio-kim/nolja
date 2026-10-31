@@ -26,14 +26,19 @@ function coordinate(raw: string | undefined): number | null {
   return Math.abs(n) > 1000 ? n / 1e7 : n;
 }
 
-export function fromNaverItems(items: NaverItem[], base: LatLng, category: PlaceCategory): Place[] {
+export function fromNaverItems(
+  items: NaverItem[],
+  base: LatLng,
+  category: PlaceCategory,
+  radiusKm: number = NEARBY_RADIUS_KM,
+): Place[] {
   return items.flatMap((item) => {
     const name = stripTags(item.title ?? "");
     const lng = coordinate(item.mapx);
     const lat = coordinate(item.mapy);
     if (!name || lat === null || lng === null) return [];
     const km = haversineKm(base, { lat, lng });
-    if (km > NEARBY_RADIUS_KM) return [];
+    if (km > radiusKm) return [];
     return [
       {
         id: `naver:${name}:${item.mapx}:${item.mapy}`,

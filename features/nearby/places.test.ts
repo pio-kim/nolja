@@ -45,4 +45,10 @@ describe("주변 음식점·카페", () => {
       ["b", 1.8],
     ]);
   });
+
+  test("고른 반경 밖의 장소는 빼고, 반경을 넓히면 그 안의 먼 곳도 남긴다", () => {
+    const raw = [google("near", "가까운 곳", 127.01), google("far", "먼 곳", 127.05)]; // 0.9km, 4.4km
+    expect(fromGooglePlaces(raw, base, "cafe").map((p) => p.id)).toEqual(["near"]);
+    expect(fromGooglePlaces(raw, base, "cafe", 10).map((p) => p.id)).toEqual(["near", "far"]);
+  });
 });

@@ -24,7 +24,10 @@ export type Place = {
   source: "google" | "naver";
 };
 
-export const NEARBY_RADIUS_KM = 3;
+export const NEARBY_RADIUS_KM = 3; // default
+// Radii the user can pick; Nearby Search still returns at most 20 places.
+export const NEARBY_RADIUS_OPTIONS_KM = [1, 3, 5, 10] as const;
+export const MAX_NEARBY_RADIUS_KM = 10;
 const MIN_REVIEWS_FOR_RANKING = 20;
 
 export type GooglePlace = {
@@ -47,13 +50,18 @@ const PRICE_LEVEL: Record<string, string> = {
   PRICE_LEVEL_VERY_EXPENSIVE: "₩₩₩₩",
 };
 
-export function fromGooglePlaces(places: GooglePlace[], base: LatLng, category: PlaceCategory): Place[] {
+export function fromGooglePlaces(
+  places: GooglePlace[],
+  base: LatLng,
+  category: PlaceCategory,
+  radiusKm: number = NEARBY_RADIUS_KM,
+): Place[] {
   return places.flatMap((p) => {
     const lat = p.location?.latitude;
     const lng = p.location?.longitude;
     if (!p.id || !p.displayName?.text || lat === undefined || lng === undefined) return [];
     const km = haversineKm(base, { lat, lng });
-    if (km > NEARBY_RADIUS_KM) return [];
+    if (km > radiusKm) return [];
     const photo = p.photos?.[0];
     return [
       {

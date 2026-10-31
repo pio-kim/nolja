@@ -19,7 +19,7 @@ import { directionsUrl } from "@/lib/directions";
 import { cn } from "@/lib/utils";
 
 import { sellsAny, type Fuel, type FuelInfo } from "./kakao";
-import { sortPlaces, type Place, type PlaceCategory, type PlaceSort } from "./places";
+import { NEARBY_RADIUS_KM, NEARBY_RADIUS_OPTIONS_KM, sortPlaces, type Place, type PlaceCategory, type PlaceSort } from "./places";
 import type { NearbyBase, PlacesState } from "./use-places";
 
 export const CATEGORY_LABEL: Record<PlaceCategory, string> = {
@@ -61,10 +61,12 @@ export function PlaceList({
   area,
   notice,
   sort,
+  radiusKm = NEARBY_RADIUS_KM,
   fuel,
   hoveredId,
   selectedId,
   onSort,
+  onRadius,
   onHover,
   onResetBase,
   onRetry,
@@ -76,10 +78,12 @@ export function PlaceList({
   area: string | null; // city or county of the search place, for finding map photos
   notice?: ReactNode; // replaces the base-point banner
   sort: PlaceSort;
+  radiusKm?: number;
   fuel?: FuelFilter; // gas stations only
   hoveredId: string | null;
   selectedId: string | null; // picked on the map
   onSort: (sort: PlaceSort) => void;
+  onRadius?: (radiusKm: number) => void; // shows the radius picker
   onHover: (id: string | null) => void;
   onResetBase: () => void;
   onRetry: () => void;
@@ -108,6 +112,26 @@ export function PlaceList({
         </div>
       )}
 
+      {onRadius && (
+        <div role="group" aria-label="검색 반경" className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">반경</span>
+          {NEARBY_RADIUS_OPTIONS_KM.map((km) => (
+            <button
+              key={km}
+              type="button"
+              aria-pressed={radiusKm === km}
+              onClick={() => onRadius(km)}
+              className={cn(
+                "rounded-full border px-3 py-1 transition-colors duration-200",
+                radiusKm === km ? "border-foreground bg-foreground text-background" : "bg-card hover:border-foreground",
+              )}
+            >
+              {km}km
+            </button>
+          ))}
+        </div>
+      )}
+
       {state.status === "loading" && <PlaceSkeleton />}
 
       {state.status === "error" && (
@@ -127,7 +151,7 @@ export function PlaceList({
       {state.status === "ready" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-            <span>반경 3km · {places.length}곳</span>
+            <span>반경 {radiusKm}km · {places.length}곳</span>
             <div role="group" aria-label="정렬" className="inline-flex rounded-full bg-muted p-1">
               {(["rating", "distance"] as const).map((s) => (
                 <button
@@ -155,7 +179,7 @@ export function PlaceList({
             </div>
           ) : places.length === 0 ? (
             <div className="grid justify-items-center gap-2 rounded-2xl border bg-card px-6 py-12 text-center">
-              <h3 className="font-heading text-xl">반경 3km 안에 {CATEGORY_LABEL[category]}이(가) 없어요</h3>
+              <h3 className="font-heading text-xl">반경 {radiusKm}km 안에 {CATEGORY_LABEL[category]}이(가) 없어요</h3>
               <p className="text-sm text-muted-foreground">
                 {baseIsLodging
                   ? "검색한 장소 기준으로 돌아가 보거나, 다른 탭을 확인해 보세요."

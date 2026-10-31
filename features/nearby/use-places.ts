@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { Place, PlaceCategory } from "./places";
+import { NEARBY_RADIUS_KM, type Place, type PlaceCategory } from "./places";
 
 export type NearbyBase = { name: string; lat: number; lng: number };
 
@@ -11,14 +11,15 @@ export type PlacesState =
   | { status: "error"; reason: "missing-key" | "failed" }
   | { status: "ready"; places: Place[] };
 
-// Loads one category around one base point; results are kept per base and
-// category so switching tabs or bases back does not refetch.
-export function usePlaces(base: NearbyBase, category: PlaceCategory, enabled: boolean) {
+// Loads one category around one base point; results are kept per base,
+// category and radius so switching tabs, bases or radii back does not refetch.
+export function usePlaces(base: NearbyBase, category: PlaceCategory, enabled: boolean, radiusKm = NEARBY_RADIUS_KM) {
   const key = new URLSearchParams({
     category,
     name: base.name,
     lat: String(base.lat),
     lng: String(base.lng),
+    radius: String(radiusKm),
   }).toString();
   const [attempt, setAttempt] = useState(0);
   const [results, setResults] = useState<Record<string, PlacesState>>({});
