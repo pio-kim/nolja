@@ -1,8 +1,10 @@
 // Runs one task per id with at most `limit` running at once. Ids added again are
-// ignored; prioritize() moves a queued id to the front.
-export function runLimited<T extends string>(limit: number, task: (id: T) => Promise<void>) {
+// ignored; prioritize() moves a queued id to the front. stop() drops the queue,
+// signals running tasks to abort and forgets added ids, so they can be added again.
+export function runLimited<T extends string>(limit: number, task: (id: T, signal: AbortSignal) => Promise<void>) {
   const queue: T[] = [];
   const seen = new Set<T>();
+  let controller = new AbortController();
   let running = 0;
   let waiters: (() => void)[] = [];
 
@@ -10,7 +12,7 @@ export function runLimited<T extends string>(limit: number, task: (id: T) => Pro
     while (running < limit && queue.length > 0) {
       const id = queue.shift() as T;
       running++;
-      task(id)
+      task(id, controller.signal)
         .catch(() => {})
         .finally(() => {
           running--;
@@ -35,6 +37,12 @@ export function runLimited<T extends string>(limit: number, task: (id: T) => Pro
     prioritize(id: T) {
       const i = queue.indexOf(id);
       if (i > 0) queue.unshift(...queue.splice(i, 1));
+    },
+    stop() {
+      queue.length = 0;
+      seen.clear();
+      controller.abort();
+      controller = new AbortController();
     },
     idle() {
       return new Promise<void>((resolve) => {
