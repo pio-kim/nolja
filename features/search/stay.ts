@@ -1,15 +1,11 @@
 // Dates are calendar days in Korea, written as YYYY-MM-DD.
-export { todayInKorea } from "@/lib/korea-date";
+import { addDays } from "@/lib/korea-date";
+
+export { addDays, todayInKorea } from "@/lib/korea-date";
 
 export type IsoDate = string;
 
 export type Stay = { checkIn: IsoDate; checkOut: IsoDate };
-
-export function addDays(date: IsoDate, days: number): IsoDate {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 export function defaultStay(today: IsoDate): Stay {
   return { checkIn: today, checkOut: addDays(today, 1) };

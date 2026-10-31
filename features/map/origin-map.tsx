@@ -17,13 +17,15 @@ export type MapMarker = {
   lng: number;
   label: string;
   title: string;
-  kind: "lodging" | "restaurant" | "cafe" | "convenience_store";
+  kind: "lodging" | "restaurant" | "cafe" | "gas_station" | "laundry" | "convenience_store";
 };
 
 const MARKER_STYLE: Record<MapMarker["kind"], string> = {
   lodging: "bg-marker-lodging text-primary-foreground",
   restaurant: "bg-marker-restaurant text-white",
   cafe: "bg-marker-cafe text-white",
+  gas_station: "bg-marker-gas text-white",
+  laundry: "bg-marker-laundry text-white",
   convenience_store: "bg-marker-store text-white",
 };
 
@@ -46,6 +48,7 @@ export function OriginMap({
   origin,
   markers = [],
   highlightedId,
+  selectedId,
   onMarkerHover,
   onMarkerClick,
   className,
@@ -53,6 +56,7 @@ export function OriginMap({
   origin: MapOrigin;
   markers?: MapMarker[];
   highlightedId?: string | null;
+  selectedId?: string | null; // stays marked until another marker is picked
   onMarkerHover?: (id: string | null) => void;
   onMarkerClick?: (id: string) => void;
   className?: string;
@@ -99,24 +103,31 @@ export function OriginMap({
           </AdvancedMarker>
           {markers.map((m) => {
             const active = m.id === highlightedId;
+            const selected = m.id === selectedId;
             return (
               <AdvancedMarker
                 key={m.id}
                 position={{ lat: m.lat, lng: m.lng }}
                 title={m.title}
-                zIndex={active ? 10 : 2}
+                zIndex={selected ? 20 : active ? 10 : 2}
                 onClick={() => onMarkerClick?.(m.id)}
                 onMouseEnter={() => onMarkerHover?.(m.id)}
                 onMouseLeave={() => onMarkerHover?.(null)}
               >
-                <span
-                  className={cn(
-                    "block rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap shadow-[0_0_0_2px_#fff,0_4px_10px_rgba(0,0,0,0.2)] transition-transform duration-200",
-                    MARKER_STYLE[m.kind],
-                    active && "scale-115 shadow-[0_0_0_2px_#fff,0_0_0_4px_#111,0_6px_14px_rgba(0,0,0,0.3)]",
-                  )}
-                >
-                  {m.label}
+                <span className="flex flex-col items-center">
+                  <span
+                    className={cn(
+                      "block rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap shadow-[0_0_0_2px_#fff,0_4px_10px_rgba(0,0,0,0.2)] transition-transform duration-200",
+                      MARKER_STYLE[m.kind],
+                      (active || selected) && "scale-115 shadow-[0_0_0_2px_#fff,0_0_0_4px_#111,0_6px_14px_rgba(0,0,0,0.3)]",
+                      selected && "scale-125 px-3 py-1.5 text-sm",
+                    )}
+                  >
+                    {selected && <span className="mr-1">✓</span>}
+                    {m.label}
+                  </span>
+                  {/* A pin tail marks the picked place even when the pointer leaves it. */}
+                  {selected && <span aria-hidden className="mt-1 size-0 border-x-[7px] border-t-[9px] border-x-transparent border-t-[#111]" />}
                 </span>
               </AdvancedMarker>
             );

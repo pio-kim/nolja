@@ -284,6 +284,8 @@ export function SearchForm({
               numberOfMonths={2}
               selected={range}
               defaultMonth={range.from}
+              // Past days can't be picked, and months before this one can't be reached.
+              startMonth={fromIsoDate(today)}
               disabled={{ before: fromIsoDate(today) }}
               onSelect={(_next, day) => pickDay(day)}
             />

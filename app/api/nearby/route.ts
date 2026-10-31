@@ -1,4 +1,4 @@
-import { fromGooglePlaces, fromNaverItems, mergePlaces, PLACE_CATEGORIES, type PlaceCategory } from "@/features/nearby";
+import { fromGooglePlaces, fromNaverItems, mergePlaces, type PlaceCategory } from "@/features/nearby";
 import { searchGoogleNearby, searchNaverLocal } from "@/features/nearby/server";
 import { googlePlacesApiKey, naverSearchKeys } from "@/lib/env";
 
@@ -6,18 +6,23 @@ import { googlePlacesApiKey, naverSearchKeys } from "@/lib/env";
 const NAVER_KEYWORDS: Record<PlaceCategory, string[]> = {
   restaurant: ["맛집", "한식"],
   cafe: ["카페"],
+  lodging: ["숙소", "모텔"],
+  gas_station: ["주유소"],
+  laundry: ["빨래방", "코인세탁"],
   convenience_store: ["편의점"],
 };
+
+const isCategory = (value: string | null): value is PlaceCategory => value !== null && Object.hasOwn(NAVER_KEYWORDS, value);
 
 export async function GET(request: Request) {
   const apiKey = googlePlacesApiKey();
   if (!apiKey) return Response.json({ error: "missing-key" }, { status: 503 });
 
   const params = new URL(request.url).searchParams;
-  const category = params.get("category") as PlaceCategory | null;
+  const category = params.get("category");
   const name = params.get("name")?.trim() ?? "";
   const base = { lat: Number(params.get("lat")), lng: Number(params.get("lng")) };
-  if (!category || !PLACE_CATEGORIES.includes(category) || !name || !Number.isFinite(base.lat) || !Number.isFinite(base.lng)) {
+  if (!isCategory(category) || !name || !Number.isFinite(base.lat) || !Number.isFinite(base.lng)) {
     return Response.json({ error: "bad-request" }, { status: 400 });
   }
 

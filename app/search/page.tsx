@@ -9,6 +9,7 @@ import {
   ResultsSummary,
   toSearchQuery,
 } from "@/features/search";
+import { WeatherStrip } from "@/features/weather/ui";
 
 import { ResultsView } from "./results-view";
 
@@ -57,6 +58,13 @@ export default async function SearchPage({
             {formatStayLong(stay)} · {formatGuests(adults, children, ", ")}
           </p>
         </section>
+
+        <div className="mt-6">
+          <WeatherStrip
+            key={toSearchQuery(conditions)}
+            query={{ lat: place.lat, lng: place.lng, checkIn: stay.checkIn, checkOut: stay.checkOut }}
+          />
+        </div>
 
         <ResultsView
           key={toSearchQuery(conditions)}
