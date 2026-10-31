@@ -88,6 +88,8 @@ export async function placePhotoUri(
 }
 
 const KAKAO_SEARCH_URL = "https://search.map.kakao.com/mapsearch/map.daum";
+// Every photo and fuel lookup waits on this search, one browser connection each.
+export const KAKAO_TIMEOUT_MS = 5_000;
 
 // Kakao Map's own place search; see kakao.ts for why it is used.
 export async function searchKakaoMap(query: string, deps: FetchDep = {}): Promise<KakaoPlace[]> {
@@ -95,6 +97,7 @@ export async function searchKakaoMap(query: string, deps: FetchDep = {}): Promis
   const params = new URLSearchParams({ q: query, msFlag: "A", sort: "0" });
   const res = await doFetch(`${KAKAO_SEARCH_URL}?${params}`, {
     headers: { Referer: "https://map.kakao.com/", "User-Agent": "Mozilla/5.0" },
+    signal: AbortSignal.timeout(KAKAO_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Kakao map search failed: ${res.status}`);
   return ((await res.json()) as { place?: KakaoPlace[] }).place ?? [];

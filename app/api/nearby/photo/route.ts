@@ -1,5 +1,5 @@
 import { matchKakaoPhoto } from "@/features/nearby";
-import { findOnKakaoMap } from "@/features/nearby/server";
+import { findOnKakaoMap, KAKAO_TIMEOUT_MS } from "@/features/nearby/server";
 
 // Returns the Kakao Map photo of a place that has no Google photo, or 404.
 export async function GET(request: Request) {
@@ -20,8 +20,8 @@ export async function GET(request: Request) {
 
   // Served from here rather than redirected: browsers fail to load Kakao's CDN
   // image when it is reached through a redirect from this origin.
-  const image = await fetch(photo);
-  if (!image.ok) return new Response(null, { status: 502 });
+  const image = await fetch(photo, { signal: AbortSignal.timeout(KAKAO_TIMEOUT_MS) }).catch(() => null);
+  if (!image?.ok) return new Response(null, { status: 502 });
   return new Response(image.body, {
     headers: {
       "Content-Type": image.headers.get("Content-Type") ?? "image/jpeg",
