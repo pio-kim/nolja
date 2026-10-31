@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
@@ -54,6 +54,19 @@ const STAY_ERROR_TEXT: Record<StayError, string> = {
   "check-out-not-after-check-in": "체크아웃은 체크인 다음 날 이후로 골라 주세요.",
   "too-many-nights": `최대 ${MAX_NIGHTS}박까지 고를 수 있어요. 체크아웃을 더 앞으로 골라 주세요.`,
 };
+
+// Matches the form's md breakpoint, below which fields stack vertically.
+function useIsNarrow(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = matchMedia("(max-width: 767px)");
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    () => matchMedia("(max-width: 767px)").matches,
+    () => false,
+  );
+}
 
 function newSession() {
   return crypto.randomUUID();
@@ -239,6 +252,7 @@ export function SearchForm({
     setMessage(null);
   }
   const hero = variant === "hero";
+  const narrow = useIsNarrow();
 
   return (
     <form
@@ -321,6 +335,8 @@ export function SearchForm({
         </div>
 
         <Popover
+          // On phones the calendar is taller than the screen, so lock page scroll while it is open.
+          modal={narrow}
           onOpenChange={() => {
             setPendingCheckIn(null);
             setRangeError(null);
@@ -335,7 +351,12 @@ export function SearchForm({
             </span>
             <span className="truncate text-base">{formatStay(stay)}</span>
           </PopoverTrigger>
-          <PopoverContent className="w-auto rounded-2xl p-2" align="start">
+          <PopoverContent
+            // Base UI only locks touch scroll when the positioner spans (nearly) the full viewport width.
+            positionerClassName="max-md:right-0"
+            className="w-auto rounded-2xl p-2 max-md:mx-2 max-md:max-h-(--available-height) max-md:overflow-y-auto max-md:overscroll-contain"
+            align="start"
+          >
             <Calendar
               mode="range"
               locale={ko}
