@@ -16,7 +16,6 @@ import type { SellersState } from "./use-seller-prefetch";
 import type { LodgingsState } from "./use-lodgings";
 
 export const DEFAULT_RADIUS_KM = 3;
-export const WIDE_RADIUS_KM = 5;
 
 export function visibleLodgings(state: LodgingsState, radiusKm: number): Lodging[] {
   return state.status === "ready" ? state.lodgings.filter((l) => l.distanceKm <= radiusKm) : [];
@@ -25,6 +24,7 @@ export function visibleLodgings(state: LodgingsState, radiusKm: number): Lodging
 export function LodgingList({
   state,
   radiusKm,
+  widerKm,
   nights,
   query,
   hoveredId,
@@ -38,6 +38,7 @@ export function LodgingList({
 }: {
   state: LodgingsState;
   radiusKm: number;
+  widerKm: number | null; // a wider radius with lodgings in it, offered when none are found
   nights: number;
   query: string;
   hoveredId: string | null;
@@ -77,7 +78,6 @@ export function LodgingList({
   }
 
   const lodgings = visibleLodgings(state, radiusKm);
-  const canWiden = radiusKm < WIDE_RADIUS_KM && state.lodgings.some((l) => l.distanceKm <= WIDE_RADIUS_KM);
 
   return (
     <div className="flex flex-col gap-4">
@@ -95,9 +95,9 @@ export function LodgingList({
             이 날짜에 빈 방이 있는 숙소를 찾지 못했습니다. 범위를 넓히거나, 예약 사이트에서 근처 숙소를 직접 찾아보세요.
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            {canWiden && (
+            {widerKm !== null && (
               <Button size="lg" className="rounded-full px-5" onClick={onWiden}>
-                {WIDE_RADIUS_KM}km까지 넓혀 보기
+                {widerKm}km까지 넓혀 보기
               </Button>
             )}
             <BookingSiteButtons query={query} />

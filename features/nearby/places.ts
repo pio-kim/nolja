@@ -25,8 +25,7 @@ export type Place = {
 };
 
 export const NEARBY_RADIUS_KM = 3; // default
-// Radii the user can pick; Nearby Search still returns at most 20 places.
-export const NEARBY_RADIUS_OPTIONS_KM = [1, 3, 5, 10] as const;
+// Widest radius callers may ask for; Nearby Search still returns at most 20 places.
 export const MAX_NEARBY_RADIUS_KM = 10;
 const MIN_REVIEWS_FOR_RANKING = 20;
 

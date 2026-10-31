@@ -14,10 +14,9 @@ import {
   useLodgings,
   useSellerPrefetch,
   visibleLodgings,
-  WIDE_RADIUS_KM,
 } from "@/features/lodging/ui";
 import { OriginMap, type MapMarker } from "@/features/map/origin-map";
-import { areaOf, NEARBY_RADIUS_KM, type Fuel, type PlaceCategory, type PlaceSort } from "@/features/nearby";
+import { areaOf, type Fuel, type PlaceCategory, type PlaceSort } from "@/features/nearby";
 import {
   CATEGORY_LABEL,
   PlaceList,
@@ -44,6 +43,9 @@ const TAB_DOT: Record<Tab, string> = {
   laundry: "bg-marker-laundry",
 };
 
+// Radii every tab can be narrowed to; both the lodging and nearby APIs go up to 10km.
+const RADIUS_OPTIONS_KM = [1, 3, 5, 10];
+
 const notVisited: Record<NearbyTab, boolean> = {
   restaurant: false,
   cafe: false,
@@ -62,6 +64,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
   const { state, retry } = useLodgings(stay, place);
   const [tab, setTab] = useState<Tab>("lodging");
   const [visited, setVisited] = useState(notVisited);
+  // One radius for every tab, so lodgings and nearby places cover the same area.
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Lodging | null>(null);
@@ -75,8 +78,6 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
     laundry: "distance",
   });
   const [wantedFuels, setWantedFuels] = useState<Fuel[]>([]);
-  // One radius for every nearby tab, so tabs compare the same area.
-  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(NEARBY_RADIUS_KM);
   const [mapOpen, setMapOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   // The place picked on the map: it stays marked on the map and in the list
@@ -92,6 +93,8 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
   }, [picked, mapOpen]);
 
   const lodgings = visibleLodgings(state, radiusKm);
+  const widerKm =
+    RADIUS_OPTIONS_KM.find((km) => km > radiusKm && visibleLodgings(state, km).length > lodgings.length) ?? null;
   const sellers = useSellerPrefetch(
     lodgings.map((l) => l.id),
     stay,
@@ -99,11 +102,11 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
 
   const base: NearbyBase = baseLodging ?? { name: place.name, lat: place.lat, lng: place.lng };
   const nearby = {
-    restaurant: usePlaces(base, "restaurant", visited.restaurant, nearbyRadiusKm),
-    cafe: usePlaces(base, "cafe", visited.cafe, nearbyRadiusKm),
-    convenience_store: usePlaces(base, "convenience_store", visited.convenience_store, nearbyRadiusKm),
-    gas_station: usePlaces(base, "gas_station", visited.gas_station, nearbyRadiusKm),
-    laundry: usePlaces(base, "laundry", visited.laundry, nearbyRadiusKm),
+    restaurant: usePlaces(base, "restaurant", visited.restaurant, radiusKm),
+    cafe: usePlaces(base, "cafe", visited.cafe, radiusKm),
+    convenience_store: usePlaces(base, "convenience_store", visited.convenience_store, radiusKm),
+    gas_station: usePlaces(base, "gas_station", visited.gas_station, radiusKm),
+    laundry: usePlaces(base, "laundry", visited.laundry, radiusKm),
   };
 
   const area = areaOf(place.address);
@@ -116,7 +119,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
   const fuelOf = (t: NearbyTab) => (t === "gas_station" ? fuel : undefined);
 
   const searchBase: NearbyBase = { name: place.name, lat: place.lat, lng: place.lng };
-  const unpriced = usePlaces(searchBase, "lodging", state.status === "error");
+  const unpriced = usePlaces(searchBase, "lodging", state.status === "error", radiusKm);
   // Unpriced stays stand in unless place search failed too.
   const showUnpriced = state.status === "error" && unpriced.state.status !== "error";
 
@@ -182,6 +185,24 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
           ))}
         </TabsList>
 
+        <div role="group" aria-label="검색 반경" className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">반경</span>
+          {RADIUS_OPTIONS_KM.map((km) => (
+            <button
+              key={km}
+              type="button"
+              aria-pressed={radiusKm === km}
+              onClick={() => setRadiusKm(km)}
+              className={cn(
+                "rounded-full border px-3 py-1 transition-colors duration-200",
+                radiusKm === km ? "border-foreground bg-foreground text-background" : "bg-card hover:border-foreground",
+              )}
+            >
+              {km}km
+            </button>
+          ))}
+        </div>
+
         <TabsContent value="lodging">
           {showUnpriced ? (
             <PlaceList
@@ -192,6 +213,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               area={area}
               notice={<UnpricedNotice query={place.name} onRetry={retry} />}
               sort={sort.lodging}
+              radiusKm={radiusKm}
               hoveredId={hoveredId}
               selectedId={picked?.id ?? null}
               onSort={(s) => setSort((prev) => ({ ...prev, lodging: s }))}
@@ -203,6 +225,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
             <LodgingList
               state={state}
               radiusKm={radiusKm}
+              widerKm={widerKm}
               nights={nights}
               query={place.name}
               hoveredId={hoveredId}
@@ -211,7 +234,7 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               sellersOf={sellers.get}
               onHover={setHoveredId}
               onSelect={select}
-              onWiden={() => setRadiusKm(WIDE_RADIUS_KM)}
+              onWiden={() => widerKm !== null && setRadiusKm(widerKm)}
               onRetry={retry}
             />
           )}
@@ -225,12 +248,11 @@ export function ResultsView({ place, stay, nights }: { place: SearchPlace; stay:
               baseIsLodging={baseLodging !== null}
               area={area}
               sort={sort[t]}
-              radiusKm={nearbyRadiusKm}
+              radiusKm={radiusKm}
               fuel={fuelOf(t)}
               hoveredId={hoveredId}
               selectedId={picked?.id ?? null}
               onSort={(s) => setSort((prev) => ({ ...prev, [t]: s }))}
-              onRadius={setNearbyRadiusKm}
               onHover={setHoveredId}
               onResetBase={() => setBaseLodging(null)}
               onRetry={nearby[t].retry}

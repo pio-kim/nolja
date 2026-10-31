@@ -19,7 +19,7 @@ import { directionsUrl } from "@/lib/directions";
 import { cn } from "@/lib/utils";
 
 import { sellsAny, type Fuel, type FuelInfo } from "./kakao";
-import { NEARBY_RADIUS_KM, NEARBY_RADIUS_OPTIONS_KM, sortPlaces, type Place, type PlaceCategory, type PlaceSort } from "./places";
+import { NEARBY_RADIUS_KM, sortPlaces, type Place, type PlaceCategory, type PlaceSort } from "./places";
 import type { NearbyBase, PlacesState } from "./use-places";
 
 export const CATEGORY_LABEL: Record<PlaceCategory, string> = {
@@ -66,7 +66,6 @@ export function PlaceList({
   hoveredId,
   selectedId,
   onSort,
-  onRadius,
   onHover,
   onResetBase,
   onRetry,
@@ -83,7 +82,6 @@ export function PlaceList({
   hoveredId: string | null;
   selectedId: string | null; // picked on the map
   onSort: (sort: PlaceSort) => void;
-  onRadius?: (radiusKm: number) => void; // shows the radius picker
   onHover: (id: string | null) => void;
   onResetBase: () => void;
   onRetry: () => void;
@@ -109,26 +107,6 @@ export function PlaceList({
               검색한 장소 기준으로 돌아가기
             </button>
           )}
-        </div>
-      )}
-
-      {onRadius && (
-        <div role="group" aria-label="검색 반경" className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted-foreground">반경</span>
-          {NEARBY_RADIUS_OPTIONS_KM.map((km) => (
-            <button
-              key={km}
-              type="button"
-              aria-pressed={radiusKm === km}
-              onClick={() => onRadius(km)}
-              className={cn(
-                "rounded-full border px-3 py-1 transition-colors duration-200",
-                radiusKm === km ? "border-foreground bg-foreground text-background" : "bg-card hover:border-foreground",
-              )}
-            >
-              {km}km
-            </button>
-          ))}
         </div>
       )}
 
