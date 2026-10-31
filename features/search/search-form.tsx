@@ -2,7 +2,15 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightIcon, CalendarDaysIcon, MapPinIcon, MinusIcon, PlusIcon, UsersIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  CalendarDaysIcon,
+  LocateFixedIcon,
+  MapPinIcon,
+  MinusIcon,
+  PlusIcon,
+  UsersIcon,
+} from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { ko } from "react-day-picker/locale";
 
@@ -29,7 +37,17 @@ type Message =
   | { kind: "not-found"; text: string }
   | { kind: "candidates"; text: string; candidates: SearchPlace[] }
   | { kind: "stay"; error: StayError }
+  | { kind: "location-denied" }
+  | { kind: "location-outside" }
+  | { kind: "location-failed" }
   | { kind: "unavailable" };
+
+function currentPosition(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error("unsupported"));
+    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10_000, maximumAge: 60_000 });
+  });
+}
 
 const STAY_ERROR_TEXT: Record<StayError, string> = {
   "past-check-in": "지난 날짜에는 체크인할 수 없어요. 오늘 이후로 골라 주세요.",
@@ -130,6 +148,34 @@ export function SearchForm({
     }
   }
 
+  async function pickCurrentLocation() {
+    if (busy) return;
+    setListOpen(false);
+    setMessage(null);
+    setBusy(true);
+    try {
+      let position: GeolocationPosition;
+      try {
+        position = await currentPosition();
+      } catch (error) {
+        const denied = (error as GeolocationPositionError).code === 1;
+        return setMessage({ kind: denied ? "location-denied" : "location-failed" });
+      }
+      const { latitude, longitude } = position.coords;
+      const params = new URLSearchParams({ lat: String(latitude), lng: String(longitude) });
+      const res = await fetch(`/api/places/reverse?${params}`);
+      if (res.status === 404) return setMessage({ kind: "location-outside" });
+      if (!res.ok) throw new Error(String(res.status));
+      const { place } = (await res.json()) as { place: SearchPlace };
+      setText(place.name);
+      setPicked(place);
+    } catch {
+      setMessage({ kind: "unavailable" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit() {
     if (busy) return;
     setListOpen(false);
@@ -214,25 +260,37 @@ export function SearchForm({
           <label htmlFor={`${listId}-place`} className="text-xs opacity-70">
             장소
           </label>
-          <input
-            id={`${listId}-place`}
-            role="combobox"
-            aria-expanded={listOpen && suggestions.length > 0}
-            aria-controls={`${listId}-list`}
-            aria-autocomplete="list"
-            autoComplete="off"
-            className="w-full bg-transparent text-base outline-none placeholder:text-current placeholder:opacity-55"
-            placeholder="어디로 가세요? 예: 강릉중앙시장"
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              setPicked(null);
-              setMessage(null);
-            }}
-            onFocus={() => suggestions.length && setListOpen(true)}
-            onBlur={() => setTimeout(() => setListOpen(false), 150)}
-            onKeyDown={onKeyDown}
-          />
+          <div className="flex items-center gap-2">
+            <input
+              id={`${listId}-place`}
+              role="combobox"
+              aria-expanded={listOpen && suggestions.length > 0}
+              aria-controls={`${listId}-list`}
+              aria-autocomplete="list"
+              autoComplete="off"
+              className="w-full min-w-0 bg-transparent text-base outline-none placeholder:text-current placeholder:opacity-55"
+              placeholder="어디로 가세요? 예: 강릉중앙시장"
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                setPicked(null);
+                setMessage(null);
+              }}
+              onFocus={() => suggestions.length && setListOpen(true)}
+              onBlur={() => setTimeout(() => setListOpen(false), 150)}
+              onKeyDown={onKeyDown}
+            />
+            <button
+              type="button"
+              aria-label="현재 위치로 찾기"
+              title="현재 위치로 찾기"
+              disabled={busy}
+              className="-my-1 -mr-2 flex size-9 shrink-0 items-center justify-center rounded-full opacity-70 transition-all duration-200 hover:bg-black/5 hover:opacity-100 disabled:opacity-40"
+              onClick={pickCurrentLocation}
+            >
+              <LocateFixedIcon className="size-4.5" />
+            </button>
+          </div>
           {listOpen && suggestions.length > 0 && (
             <ul
               id={`${listId}-list`}
@@ -422,7 +480,13 @@ function FormMessage({ message, onPick }: { message: Message; onPick: (p: Search
           ]
         : message.kind === "stay"
           ? ["날짜를 다시 골라 주세요.", STAY_ERROR_TEXT[message.error]]
-          : ["지금은 장소를 찾을 수 없어요.", "잠시 후 다시 시도해 주세요."];
+          : message.kind === "location-denied"
+            ? ["현재 위치를 쓸 수 없어요.", "브라우저 설정에서 이 사이트의 위치 권한을 허용하거나, 장소 이름을 입력해 주세요."]
+            : message.kind === "location-outside"
+              ? ["현재 위치가 국내가 아니에요.", "국내 장소만 지원해요. 장소 이름을 입력해 주세요."]
+              : message.kind === "location-failed"
+                ? ["현재 위치를 확인하지 못했어요.", "잠시 후 다시 시도하거나, 장소 이름을 입력해 주세요."]
+                : ["지금은 장소를 찾을 수 없어요.", "잠시 후 다시 시도해 주세요."];
   return (
     <div className={cn(box, "border-destructive/40")} role="alert">
       <p className="font-semibold text-destructive">{title}</p>

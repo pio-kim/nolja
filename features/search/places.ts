@@ -26,7 +26,7 @@ type GooglePlace = {
   displayName?: { text?: string };
   formattedAddress?: string;
   location?: { latitude?: number; longitude?: number };
-  addressComponents?: { shortText?: string; types?: string[] }[];
+  addressComponents?: { longText?: string; shortText?: string; types?: string[] }[];
 };
 
 function isInKorea(p: GooglePlace): boolean {
@@ -113,6 +113,66 @@ export async function getPlace(placeId: string, sessionToken: string, deps: Plac
   });
   if (!res.ok) throw new Error(`Place Details failed: ${res.status}`);
   return toSearchPlace((await res.json()) as GooglePlace);
+}
+
+export const CURRENT_LOCATION_NAME = "현재 위치";
+
+const inKoreaBounds = (lat: number, lng: number) =>
+  lat >= KOREA_BOUNDS.rectangle.low.latitude &&
+  lat <= KOREA_BOUNDS.rectangle.high.latitude &&
+  lng >= KOREA_BOUNDS.rectangle.low.longitude &&
+  lng <= KOREA_BOUNDS.rectangle.high.longitude;
+
+// Each level with the Korean district suffixes it may end in. Google also tags
+// odd values ("지하", "특별자치도") as sublocalities; the suffix drops them.
+const AREA_LEVELS: [string, RegExp][] = [
+  ["administrative_area_level_1", /^[가-힣]+(도|시)$/],
+  ["locality", /^[가-힣]+(시|군)$/],
+  ["sublocality_level_1", /^[가-힣]+(구|군|읍|면)$/],
+  ["sublocality_level_2", /^[가-힣0-9.]+(동|읍|면|리|가)$/],
+];
+
+// "강원특별자치도 강릉시 교동": the area only, since a nearby place's full
+// address is someone else's street number. Places list different, sometimes
+// English, components, so each level takes the first fitting one among them.
+function areaAddress(places: GooglePlace[]): string {
+  const parts = AREA_LEVELS.flatMap(([type, pattern]) => {
+    for (const p of places) {
+      const text = p.addressComponents?.find((c) => c.types?.includes(type))?.longText;
+      if (text && pattern.test(text)) return [text];
+    }
+    return [];
+  });
+  return [...new Set(parts)].join(" ");
+}
+
+// Turns the user's location into a search place, addressed by the closest
+// place Google knows. The API key has no Geocoding API, so Nearby Search
+// stands in for reverse geocoding. Null when the location is outside Korea.
+export async function placeAt(lat: number, lng: number, deps: PlacesDeps): Promise<SearchPlace | null> {
+  if (!inKoreaBounds(lat, lng)) return null;
+  const doFetch = deps.fetch ?? fetch;
+  const res = await doFetch(`${PLACES_BASE}/places:searchNearby`, {
+    method: "POST",
+    headers: headers(deps.apiKey, "places.addressComponents"),
+    body: JSON.stringify({
+      maxResultCount: 5,
+      rankPreference: "DISTANCE",
+      languageCode: "ko",
+      regionCode: "kr",
+      locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: 2000 } },
+    }),
+  });
+  if (!res.ok) throw new Error(`Nearby Search failed: ${res.status}`);
+  const places = ((await res.json()) as { places?: GooglePlace[] }).places ?? [];
+  if (places.length > 0 && !places.some(isInKorea)) return null;
+  return {
+    id: `here:${lat.toFixed(5)},${lng.toFixed(5)}`,
+    name: CURRENT_LOCATION_NAME,
+    address: areaAddress(places.filter(isInKorea)),
+    lat,
+    lng,
+  };
 }
 
 export async function findPlacesByText(text: string, deps: PlacesDeps): Promise<TextSearchResult> {

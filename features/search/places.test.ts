@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { findPlacesByText, getPlace, suggestPlaces } from "@/features/search/places";
+import { findPlacesByText, getPlace, placeAt, suggestPlaces } from "@/features/search/places";
 
 // Shaped like a Places API (New) Text Search response.
 function googlePlace(id: string, name: string, address: string, country: string, lat = 37.75, lng = 128.9) {
@@ -134,5 +134,53 @@ describe("추천에서 고른 장소", () => {
       lat: 37.7545,
       lng: 128.8988,
     });
+  });
+});
+
+describe("현재 위치로 기준점 정하기", () => {
+  const component = (longText: string, type: string) => ({ longText, shortText: longText, types: [type, "political"] });
+
+  test("국내 좌표는 가까운 곳들의 행정구역 이름을 모아 '현재 위치' 장소로 바꾼다", async () => {
+    // Shaped like real responses (2026-10-31): English and odd values mixed in.
+    const kr = component("대한민국", "country");
+    const place = await placeAt(37.7519, 128.8761, {
+      apiKey: "test",
+      fetch: fakeFetch([
+        {
+          addressComponents: [
+            component("si", "sublocality_level_1"),
+            component("강릉시", "locality"),
+            component("강원특별자치도", "administrative_area_level_1"),
+            { ...kr, shortText: "KR" },
+          ],
+        },
+        { addressComponents: [component("교동", "sublocality_level_2"), { ...kr, shortText: "KR" }] },
+      ]),
+    });
+    expect(place).toEqual({
+      id: "here:37.75190,128.87610",
+      name: "현재 위치",
+      address: "강원특별자치도 강릉시 교동",
+      lat: 37.7519,
+      lng: 128.8761,
+    });
+  });
+
+  test("근처에 아무 곳도 없으면 주소 없이 좌표만 쓴다", async () => {
+    const place = await placeAt(37.5, 128.5, { apiKey: "test", fetch: fakeFetch([]) });
+    expect(place).toMatchObject({ name: "현재 위치", address: "", lat: 37.5, lng: 128.5 });
+  });
+
+  test("국외 좌표는 장소를 찾지 않고 null을 돌려준다", async () => {
+    let called = false;
+    const place = await placeAt(35.68, 139.76, {
+      apiKey: "test",
+      fetch: async () => {
+        called = true;
+        return new Response("{}");
+      },
+    });
+    expect(place).toBeNull();
+    expect(called).toBe(false);
   });
 });
